@@ -1,6 +1,17 @@
 # Android app
 
-Tinig Turo ships as an Android app built as a **Trusted Web Activity (TWA)**.
+Tinig Turo is a React PWA. For Android it is *also* packaged as a **Trusted Web
+Activity (TWA)**: a small signed APK that opens the PWA full-screen in Chrome. The APK
+does not contain the app's code; the React app is still the website.
+
+**Release method (as of 2026-10-15):**
+- **Web/PWA:** `vercel deploy` from this repository. Production
+  (`tinigturo-green.vercel.app`) was last deployed from an uncommitted working tree;
+  deploy from a commit from now on so the live site can be traced to source.
+- **Android:** `npm run android:build` on a machine that holds the signing key, then
+  deploy the site so `/download/tinigturo.apk` and `/.well-known/assetlinks.json`
+  are served. Distribution is by sideloading that APK; Google Play is optional and has
+  not been done.
 
 - Download: <https://tinigturo-green.vercel.app/download/tinigturo.apk>, or the
   in-app page **Get the app** (`/install`).
@@ -22,9 +33,12 @@ Android opens the app without a browser address bar. It was verified with Google
 Digital Asset Links API (`"linked": true`).
 
 **Consequences:**
-- **Web changes need no new APK.** The app loads the live site, so deploying to Vercel
-  updates every installed app. Rebuild only to change the app name, icon, version, or
-  domain.
+- **What a Vercel deploy changes, and what it does not.** The TWA shows the live site,
+  so a deploy changes the *web app* inside it, through the normal service-worker update
+  ("A new version is ready → Update now", never during a recording). It does **not**
+  change the installed *Android package*: its name, icon, version code, package ID,
+  splash screen, Android permissions, or which signing-key fingerprints it trusts.
+  Those need a new APK (and the user installing it).
 - **First launch needs the internet,** just like the website. After that it works
   offline.
 - **Chrome must be installed** (it is on nearly all Android phones). Without a browser

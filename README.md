@@ -31,7 +31,7 @@ deploy the retention function.
 ## Get the app
 
 - **Web:** <https://tinigturo-green.vercel.app>. Install it from the browser for offline use.
-- **Android:** [download the APK](https://tinigturo-green.vercel.app/download/tinigturo.apk) (Android 7.0+, about 1 MB). See [docs/ANDROID.md](docs/ANDROID.md) for building, signing and Google Play.
+- **Android:** [download the APK](https://tinigturo-green.vercel.app/download/tinigturo.apk) (Android 7.0+, about 1 MB). It is a Trusted Web Activity: a signed shell that opens this same web app in Chrome. A Vercel deploy updates the web app inside it, not the Android package itself. See [docs/ANDROID.md](docs/ANDROID.md) for building, signing and Google Play.
 
 ## What it does
 
@@ -75,6 +75,8 @@ deploy the retention function.
 
 ## Documentation
 
+- [docs/STATUS.md](docs/STATUS.md): what is deployed, the audit of every requirement
+  (verified, unverified, fixed, incomplete, missing), the staged plan and rollback.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): modules, offline-first data flow,
   outbox and sync, recording lifecycle, caching.
 - [docs/SCORING.md](docs/SCORING.md): alignment and scoring rules, measures, rewards.
@@ -93,12 +95,17 @@ deploy the retention function.
 
 ## Tests
 
-| Command | Latest result |
+Results from the latest run on this branch (2026-10-15). Details, and what these
+tests cannot show, are in [docs/TESTING.md](docs/TESTING.md).
+
+| Command | Result |
 |---|---|
 | `npm run typecheck` | no errors |
-| `npm test` | 155 passed (120 unit/component + 35 database tests against the real migrations in PGlite) |
+| `npm test` | 180 passed (145 unit/component + 35 database tests against the real migrations in PGlite) |
 | `npm run build` | passes |
-| `npm run test:e2e` | 13 passed (Chromium desktop and mobile) |
+| `npm run test:e2e` | 15 passed (headless Chromium: desktop, and Pixel 7 emulation) |
+
+None of these run on a physical device or against a hosted Supabase project.
 
 ## Known limitations and unresolved issues
 
@@ -113,9 +120,11 @@ deploy the retention function.
     (`/benchmark`).
 - **Filipino is not assessed.** No suitable verified recognizer was found. Filipino
   stories are read, recorded and practised without scoring.
-- **Not run against a hosted Supabase project.** All SQL is tested in PGlite, but no
-  credentials were available. Auth emails, Storage uploads, signed URLs and the Edge
-  Function need a staging check.
+- **Hosted Supabase end-to-end flows are unverified.** All SQL is tested in PGlite.
+  The hosted project used by the live site has the migrations applied (checked
+  read-only), but it is the production backend, so sign-up emails, enrollment, Storage
+  uploads, signed URLs and the retention function still need a check on a separate
+  staging project.
 - **Unassessed recordings cannot be assessed later on the device.** Live voice
   following works, but saved recordings can't be transcribed afterwards. The offered
   path is teacher review: the learner's side can request a review, and teachers listen

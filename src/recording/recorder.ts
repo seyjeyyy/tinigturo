@@ -87,7 +87,7 @@ export class AudioRecorder {
     };
     // A microphone that disappears mid-recording (unplugged, revoked) is a failure.
     for (const track of this.stream.getAudioTracks()) {
-      track.onended = () => callbacks.onError(recordingError('no_microphone'));
+      track.onended = () => callbacks.onError(recordingError('microphone_disconnected'));
     }
     recorder.start(1000);
     this.startLevelMonitor(callbacks.onLevel);
@@ -121,20 +121,36 @@ export class AudioRecorder {
     if (this.recorder?.state === 'paused') this.recorder.resume();
   }
 
-  /** Stops recording and resolves with the complete recording (or null if empty). */
-  stop(): Promise<Blob | null> {
+  private collected(): Blob | null {
+    return this.chunks.length ? new Blob(this.chunks, { type: this.mimeType }) : null;
+  }
+
+  /**
+   * Stops recording and resolves with the complete recording (or null if empty). If the
+   * browser never reports the stop (a failed recorder), it resolves after `timeoutMs`
+   * with the chunks received so far, so saving can never hang.
+   */
+  stop(timeoutMs = 4_000): Promise<Blob | null> {
     const recorder = this.recorder;
-    if (!recorder || recorder.state === 'inactive') {
-      return Promise.resolve(this.chunks.length ? new Blob(this.chunks, { type: this.mimeType }) : null);
-    }
+    if (!recorder || recorder.state === 'inactive') return Promise.resolve(this.collected());
     return new Promise((resolve) => {
-      this.stopResolvers.push(resolve);
+      const done = (blob: Blob | null) => {
+        clearTimeout(timer);
+        this.stopResolvers = this.stopResolvers.filter((r) => r !== done);
+        resolve(blob);
+      };
+      const timer = setTimeout(() => done(this.collected()), timeoutMs);
+      this.stopResolvers.push(done);
       try {
         recorder.requestData?.();
       } catch {
         // ignore
       }
-      recorder.stop();
+      try {
+        recorder.stop();
+      } catch {
+        done(this.collected());
+      }
     });
   }
 

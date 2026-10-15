@@ -11,6 +11,7 @@ import { Button, ButtonLink } from '../../ui/Button';
 import { Dialog } from '../../ui/Dialog';
 import { formatDateTime, formatDuration } from '../../lib/format';
 import { RewardList } from '../reading/ResultPanel';
+import { StorageFullError } from '../../db/errors';
 
 export function HomePage() {
   const { learner } = useApp();
@@ -26,6 +27,22 @@ function StudentHome() {
   const assignments = useLiveQuery(() => db.assignments.filter((a) => !a.archivedAt).toArray(), [db], []);
   const rewards = useLiveQuery(() => db.rewards.where('learnerId').equals(learnerId).reverse().sortBy('awardedAt'), [db, learnerId], []);
   const [discardId, setDiscardId] = useState<string | null>(null);
+  const [recovering, setRecovering] = useState<string | null>(null);
+  const [recoverError, setRecoverError] = useState<string | null>(null);
+
+  const recover = async (sessionId: string) => {
+    setRecovering(sessionId);
+    setRecoverError(null);
+    try {
+      await recoverSession(db, sessionId, settings.shareRecordings);
+    } catch (error) {
+      setRecoverError(error instanceof StorageFullError
+        ? 'This device is out of space, so the reading could not be saved yet. Remove downloads you no longer need on the Offline downloads screen, then try again.'
+        : 'The reading could not be saved. It is still kept on this device; try again.');
+    } finally {
+      setRecovering(null);
+    }
+  };
 
   const storyTitle = (versionId: string) => stories.find((s) => s.id === versionId)?.title ?? 'A story';
   const last = sessions[0];
@@ -36,7 +53,8 @@ function StudentHome() {
   const weekAgo = Date.now() - 7 * 24 * 3600 * 1000;
   const thisWeek = sessions.filter((s) => new Date(s.startedAt).getTime() > weekAgo);
   const weekMs = thisWeek.reduce((sum, s) => sum + s.timing.activeMs, 0);
-  const myAssignments = assignments.filter((a) => learner!.classIds.length === 0 || learner!.classIds.includes(a.classId));
+  // Only the classes this reader belongs to: another reader's class work never shows here.
+  const myAssignments = assignments.filter((a) => learner!.classIds.includes(a.classId));
 
   return (
     <div className="space-y-6">
@@ -47,10 +65,11 @@ function StudentHome() {
           {recoverable.map((s) => (
             <div key={s.id} className="mt-2 flex flex-wrap items-center gap-2">
               <span>{storyTitle(s.storyVersionId)} · started {formatDateTime(s.startedAt)}</span>
-              <Button size="sm" onClick={() => void recoverSession(db, s.id, settings.shareRecordings)}>Save what was read</Button>
-              <Button size="sm" variant="ghost" onClick={() => setDiscardId(s.id)}>Throw it away</Button>
+              <Button size="sm" busy={recovering === s.id} disabled={recovering !== null} onClick={() => void recover(s.id)}>Save what was read</Button>
+              <Button size="sm" variant="ghost" disabled={recovering !== null} onClick={() => setDiscardId(s.id)}>Throw it away</Button>
             </div>
           ))}
+          {recoverError ? <p className="mt-2 font-semibold" role="alert">{recoverError}</p> : null}
         </Alert>
       ) : null}
 
@@ -74,13 +93,14 @@ function StudentHome() {
         ) : (
           <ul className="space-y-2">
             {myAssignments.map((a) => {
+              // Practised, not "done": an attempt exists, which says nothing about how it went.
               const done = sessions.some((s) => s.assignmentId === a.id);
               const downloaded = stories.some((s) => s.id === a.storyVersionId);
               return (
                 <li key={a.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-line p-2">
                   <span className="font-semibold">{a.title}</span>
                   <span className="text-sm text-ink-soft">{a.className}{a.dueAt ? ` · due ${formatDateTime(a.dueAt)}` : ''}</span>
-                  {done ? <StatusBadge tone="teal" icon="✓">Done</StatusBadge> : <StatusBadge tone="sun" icon="○">To do</StatusBadge>}
+                  {done ? <StatusBadge tone="teal" icon="✓">Practised</StatusBadge> : <StatusBadge tone="sun" icon="○">To do</StatusBadge>}
                   <span className="ml-auto">
                     {downloaded
                       ? <ButtonLink size="sm" to={`/read/${a.storyVersionId}?assignment=${a.id}`}>Read</ButtonLink>

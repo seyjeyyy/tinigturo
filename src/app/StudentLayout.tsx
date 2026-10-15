@@ -1,11 +1,12 @@
-import { NavLink, Navigate, Outlet, Link, useLocation } from 'react-router';
+import { NavLink, Outlet, Link, useLocation } from 'react-router';
 import { BookMarked, BookOpen, Download, Home, Settings, Sprout, Users } from 'lucide-react';
 import { useApp } from './AppContext';
 import { OfflineNotice, SyncPill } from './StatusIndicators';
 import { UpdateBanner } from '../pwa/UpdateBanner';
 import { AuthRedirectNotice } from './AuthRedirectNotice';
 import { avatarById } from '../domain/types';
-import { Loading } from '../ui/feedback';
+import { EmptyState, Loading } from '../ui/feedback';
+import { ButtonLink } from '../ui/Button';
 
 const NAV = [
   { to: '/', label: 'Home', icon: Home, end: true },
@@ -75,11 +76,35 @@ export function StudentLayout() {
   );
 }
 
-/** Student pages other than Home need a selected reader. */
+const NEEDS_READER: { prefix: string; what: string }[] = [
+  { prefix: '/stories', what: 'Stories show what this reader has downloaded and has been assigned' },
+  { prefix: '/words', what: 'My Words keeps each reader’s own saved words' },
+  { prefix: '/progress', what: 'Progress shows one reader’s own readings and badges' },
+  { prefix: '/read/', what: 'Readings are saved to the reader who reads them' },
+];
+
+/**
+ * Student pages other than Home need a selected reader. Instead of silently sending the
+ * person elsewhere, explain why and come back here once a reader is chosen.
+ */
 export function RequireLearner() {
   const { learner, ready } = useApp();
   const location = useLocation();
   if (!ready) return <Loading />;
-  if (!learner) return <Navigate to="/" replace state={{ from: location.pathname }} />;
+  if (!learner) {
+    const from = `${location.pathname}${location.search}`;
+    const what = NEEDS_READER.find((n) => location.pathname.startsWith(n.prefix))?.what ?? 'This page belongs to one reader';
+    return (
+      <div className="mx-auto max-w-xl p-4">
+        <EmptyState
+          icon="🦉"
+          title="Who is reading?"
+          action={<ButtonLink to="/learners" state={{ from }} icon={<Users size={20} />}>Choose a reader</ButtonLink>}
+        >
+          {what}, so we need to know who is reading first. You will come back here after choosing.
+        </EmptyState>
+      </div>
+    );
+  }
   return <Outlet />;
 }

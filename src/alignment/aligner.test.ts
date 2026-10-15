@@ -310,3 +310,35 @@ describe('StreamingAligner — Filipino normalization', () => {
     expect(two.statuses).toEqual(['correct', 'correct']);
   });
 });
+
+describe('StreamingAligner — segments a recognizer never finalizes', () => {
+  it('an open partial holds back confirmation until it is closed, and closing never re-counts a word', () => {
+    const passage = tokenizePassage('The cat sat on the mat.', 'en');
+    const aligner = new StreamingAligner(passage.words, 'en');
+    aligner.update('a', 'the cat', false, 500);
+    aligner.update('b', 'sat on', true, 1000);
+    expect(aligner.hasOpenSegment('a')).toBe(true);
+    expect(aligner.snapshot().confirmedThrough).toBe(-1); // everything after "a" is still tentative
+
+    const closed = aligner.closeOpenSegments();
+    expect(aligner.hasOpenSegment('a')).toBe(false);
+    expect(closed.confirmedThrough).toBe(3);
+    expect(closed.words.slice(0, 4).every((w) => w?.status === 'correct' && !w.tentative)).toBe(true);
+
+    // A late final for the closed segment is ignored rather than applied twice.
+    aligner.update('a', 'the cat the cat', true, 1500);
+    const result = aligner.finish();
+    expect(result.repetitions).toBe(0);
+    expect(result.statuses.slice(0, 4)).toEqual(['correct', 'correct', 'correct', 'correct']);
+  });
+
+  it('closed segments are part of the stored log, so replay gives the same result', () => {
+    const passage = tokenizePassage('The cat sat on the mat.', 'en');
+    const aligner = new StreamingAligner(passage.words, 'en');
+    aligner.update('a', 'the cat', false, 500);
+    aligner.closeOpenSegments();
+    aligner.update('b', 'sat on the mat', true, 1000);
+    const replayed = StreamingAligner.fromLog(passage.words, 'en', aligner.log()).finish();
+    expect(replayed).toEqual(aligner.finish());
+  });
+});

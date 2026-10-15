@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, Route, Routes } from 'react-router';
 import { useEffect, useRef } from 'react';
 import { Passage, type WordVisual } from './reading/Passage';
 import { ResultPanel } from './reading/ResultPanel';
@@ -12,6 +12,8 @@ import { updateStore } from '../pwa/updateStore';
 import { unassessedSummary, summarizeStatuses } from '../assessment/scoring';
 import type { ReadingSessionRecord } from '../domain/types';
 import { Dialog } from '../ui/Dialog';
+import { RequireLearner } from '../app/StudentLayout';
+import { recordingError } from '../recording/machine';
 
 function PassageHarness({ onSelect, visuals = [] }: { onSelect: (i: number) => void; visuals?: (WordVisual[] | null)[] }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -105,5 +107,44 @@ describe('Dialog', () => {
     render(<Harness />);
     expect(screen.getByRole('dialog', { name: 'Hello' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Close' })).toHaveFocus();
+  });
+});
+
+describe('ResultPanel — recording and recognition problems', () => {
+  it('says why a recording stopped early and that what was recorded is kept', async () => {
+    renderWithApp(
+      <ResultPanel session={session({})} awards={[]} stoppedBy={recordingError('microphone_disconnected')} onReadAgain={() => undefined} onReviewWords={() => undefined} />,
+    );
+    expect(await screen.findByText('The recording stopped early')).toBeInTheDocument();
+    expect(screen.getByText(/has been saved/)).toBeInTheDocument();
+  });
+
+  it('never presents a recognition failure as the reader’s mistake', async () => {
+    const assessment = unassessedSummary(20, session({}).timing, 'recognition_failed');
+    renderWithApp(<ResultPanel session={session({ assessment })} awards={[]} onReadAgain={() => undefined} onReviewWords={() => undefined} />);
+    expect(await screen.findByText(/not with your reading/)).toBeInTheDocument();
+    expect(screen.queryByText(/louder/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('Words checked')).not.toBeInTheDocument(); // no zero scores
+  });
+});
+
+describe('RequireLearner', () => {
+  it('explains that a reader is needed instead of silently redirecting', async () => {
+    render(
+      <AppProvider>
+        <MemoryRouter initialEntries={['/progress']}>
+          <Routes>
+            <Route element={<RequireLearner />}>
+              <Route path="/progress" element={<p>Progress page</p>} />
+            </Route>
+            <Route path="/" element={<p>Home page</p>} />
+          </Routes>
+        </MemoryRouter>
+      </AppProvider>,
+    );
+    expect(await screen.findByText('Who is reading?')).toBeInTheDocument();
+    expect(screen.getByText(/one reader’s own readings/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Choose a reader' })).toHaveAttribute('href', '/learners');
+    expect(screen.queryByText('Home page')).not.toBeInTheDocument();
   });
 });

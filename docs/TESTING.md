@@ -14,31 +14,63 @@ node scripts/bench-alignment.mjs   # alignment performance on this machine
 
 `npx playwright install chromium` is needed once before the browser tests.
 
-## Results (2026-10-15, Windows 11, Node 24.14, Intel i5-13420H)
+## Results
 
-| Suite | Result |
-|---|---|
-| `npm run typecheck` | passes, no errors |
-| `npm test` (Vitest 5.0.4) | **155 passed** in 14 files: 120 unit/component, 35 database |
-| `npm run build` | passes; precache 18 entries (≈ 942 KB); Vosk engine split into a 5.8 MB lazy chunk |
-| `npm run test:e2e` (Playwright 1.64, Chromium) | **13 passed** (desktop 11, mobile 2), in two consecutive full runs |
+Each run below was executed on this branch; earlier counts are history, not current
+results. Environment: Windows 11, Node 24.14, Vitest 5.0.4, Playwright 1.64 (Chromium).
 
-Unit tests per file:
+| Suite | Baseline before changes (commit 06cdf4c + deployed working tree) | Stage 2 (this branch) |
+|---|---|---|
+| `npm run typecheck` | no errors | no errors |
+| `npm test` | 156 passed, 14 files | **180 passed**, 15 files (145 unit/component, 35 database) |
+| `npm run test:e2e` | 13 passed (desktop 11, mobile 2) | **15 passed** (desktop 13, mobile 2) |
+| `npm run build` | passes | passes |
+
+The baseline already had 156 tests although the earlier docs said 155.
+
+Unit and component tests per file (stage 2):
 
 | File | Tests |
 |---|---|
-| `src/alignment/aligner.test.ts` | 33 |
+| `src/alignment/aligner.test.ts` | 35 |
+| `src/reading/readAloudController.test.ts` | 22 |
 | `src/sync/engine.test.ts` | 14 |
-| `src/reading/readAloudController.test.ts` | 12 |
-| `src/recording/recording.test.ts` | 11 |
-| `src/text/text.test.ts`, `src/data/data.test.ts`, `src/assessment/scoring.test.ts` | 8 each |
-| `src/lib/lib.test.ts`, `src/features/components.test.tsx` | 6 each |
+| `src/recording/recording.test.ts` | 12 |
+| `src/assessment/scoring.test.ts`, `src/lib/lib.test.ts` | 10 each |
+| `src/features/components.test.tsx` | 9 |
+| `src/text/text.test.ts`, `src/data/data.test.ts` | 8 each |
 | `src/speech/plan.test.ts`, `src/rewards/rules.test.ts` | 5 each |
 | `src/speech/webSpeech.test.ts` | 4 |
+| `src/recording/permissions.test.ts` | 3 |
 
 Database tests: `supabase/tests/security.test.ts` (31) and `supabase/tests/seed.test.ts` (4).
 
-Problems found and fixed while testing:
+### Defects found in the stage-2 audit, each with a test that fails on the old code
+
+All ten new controller tests were run against the previous controller and scoring code
+and failed there; they pass with the fixes.
+
+| Defect | Test |
+|---|---|
+| Leaving the reading screen while the permission prompt was open left the microphone recording after the adult allowed it, and saved an orphaned attempt | `readAloudController.test.ts` "leaving the screen while the permission prompt is open…" |
+| Cancelling while the attempt was being created left an unfinished attempt on Home | "cancelling while the attempt is being created…" |
+| A blocked microphone was requested again on every retry; guidance pointed to an address bar that installed apps do not have | "a blocked microphone is explained…"; `permissions.test.ts`; `e2e/microphone-denied.spec.ts` (2 tests) |
+| The recognizer's final text after Pause/Finish was dropped, and an unfinalized phrase kept every later word "tentative" | "the final text of speech heard before Pause…", "text a recognizer never finalized…", "counts the final words … after Finish"; `aligner.test.ts` "segments a recognizer never finalizes" |
+| A recognizer failure with no words was reported as "We did not hear any reading… try louder" | "a recognizer that fails before recognizing any words…", "voice picked up with no recognized words…"; `scoring.test.ts`; `components.test.tsx` |
+| A disconnected microphone saved the attempt but never said why it stopped | "a microphone that disconnects…"; `components.test.tsx` "says why a recording stopped early" |
+| A "can't hear you" hint appeared on devices that cannot measure input level | "shows no silence hint when the device cannot report input levels" |
+| A recorder that never reports stopping could hang "Saving your reading…" | `recording.test.ts` "stopping never hangs…" |
+| Reader-only pages silently redirected to Home | `components.test.tsx` "RequireLearner…"; `e2e/learners.spec.ts` "a reader-only page explains…" |
+| Teacher CSV exported unassessed attempts as 0 words / 0% coverage | `lib.test.ts` "teacher attempt export" |
+
+Fixed without a dedicated automated test (covered by review and the e2e flow):
+- "Save and leave" now leaves only after the reading is saved.
+- Home shows only assignments for the reader's own classes (a reader with no class saw
+  every class's assignments) and says "Practised" instead of "Done".
+- Saving an unfinished reading from Home shows progress and errors instead of failing
+  silently.
+
+Problems found and fixed in the original build (history):
 - An ordering bug in the outbox. A save and a remove created in the same millisecond
   could sync in the wrong order; op timestamps are now strictly increasing.
 - A loading race that redirected deep links before the reader had loaded.
@@ -82,10 +114,26 @@ policies with `using (true)` made 5 tests fail, as expected.
 - **Microphone denial** in headless Chromium surfaces as `NotSupportedError`, so the
   e2e test simulates the `NotAllowedError` that real browsers raise. Real denial must
   be checked on devices.
-- **Supabase in production.** The SQL is tested in PGlite with a stand-in for
-  Supabase's `auth` and `storage` schemas. Auth email flows, Storage uploads with
-  signed URLs, and the Edge Function have not run against a hosted project, because no
-  credentials were available.
+- **Hosted Supabase.** The SQL is tested in PGlite with a stand-in for Supabase's
+  `auth` and `storage` schemas. On 2026-10-15 a read-only, unauthenticated check of
+  the hosted project used by the live site showed the migrations are applied (the RPCs
+  exist and refuse anonymous callers with `42501`) and email sign-in is enabled.
+  **That project is the production backend**, so the end-to-end checks (sign-up and
+  email confirmation, password recovery, enrollment approval, attempt sync, audio
+  upload, signed-URL playback and expiry, cross-class denial, retention) were not run:
+  they would create real accounts and data. Run them on a separate staging project.
+- **Physical devices.** Nothing in this report was run on a phone or tablet. "Mobile"
+  results are Playwright's Pixel 7 emulation in desktop Chromium.
+
+### Kinds of verification in this report
+
+| Kind | What was done |
+|---|---|
+| Automated tests | Vitest (unit, component, PGlite database) and Playwright, results above. |
+| Browser observations | Headless Chromium only (desktop and Pixel 7 emulation). No Safari, Firefox or real Android Chrome. |
+| Hosted backend | Read-only reachability and schema check only (see above). |
+| Physical devices | None. The manual checklist below is still required. |
+| Live deployment | The production URL is public and serves this app; the per-deployment preview URL is behind Vercel Authentication and was not accessed. |
 
 ## Manual device checklist
 

@@ -8,6 +8,7 @@ import {
 } from '../../backend/teacherApi';
 import { useAsync } from '../../lib/useAsync';
 import { toCsv, downloadText } from '../../lib/csv';
+import { ATTEMPT_CSV_HEADER, attemptCsvRow } from './attemptExport';
 import { formatDate, formatDateTime, formatDuration, percent } from '../../lib/format';
 import { uuid } from '../../lib/ids';
 import { AVATARS, avatarById, type AvatarId } from '../../domain/types';
@@ -215,15 +216,7 @@ function ProgressTab({ classId, className }: { classId: string; className: strin
     setExporting(true);
     try {
       const attempts = await classAttempts(rows.map((r) => r.learner_id));
-      downloadText(`${slug}-attempts.csv`, toCsv(
-        ['Learner', 'Story', 'Started', 'Mode', 'Practice time (s)', 'Assessment status', 'Completion', 'Method', 'Engine', 'Scoring version', 'Total words', 'Evaluated words', 'Correct words', 'Uncertain', 'Substituted', 'Skipped', 'Coverage', 'Assessed time (s)', 'CWPM', 'Audio'],
-        attempts.map((a) => {
-          const s = a.session_assessments;
-          return [a.learners?.display_name, a.story_versions?.title, a.started_at, a.mode, Math.round(a.active_ms / 1000), s?.status, s?.completion, s?.method,
-            s?.engine_id ? `${s.engine_id} ${s.engine_version ?? ''}`.trim() : '', s?.scoring_version, s?.total_words, s?.evaluated_words, s?.correct_words,
-            s?.uncertain_words, s?.substituted_words, s?.skipped_words, s?.coverage, s?.assessed_ms != null ? Math.round(s.assessed_ms / 1000) : '', s?.cwpm, a.audio_status];
-        }),
-      ));
+      downloadText(`${slug}-attempts.csv`, toCsv(ATTEMPT_CSV_HEADER, attempts.map(attemptCsvRow)));
     } finally {
       setExporting(false);
     }

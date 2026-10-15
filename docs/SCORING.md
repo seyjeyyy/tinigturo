@@ -1,6 +1,7 @@
 # Scoring and alignment rules
 
-Versioned as `score-1.0.0` (scoring), `align-1.0.0` (aligner) and normalizer `1`.
+Versioned as `score-1.1.0` (scoring), `align-1.0.0` (aligner) and normalizer `1`.
+(Attempts saved before 1.1.0 keep `score-1.0.0`; see the change log at the end.)
 Every stored assessment records these versions, the recognition engine and its
 version, and the full transcript log, so a result can be reproduced exactly
 (`StreamingAligner.fromLog(...).finish()`).
@@ -46,6 +47,14 @@ Source: `src/alignment/aligner.ts`. Tests and fixtures: `src/alignment/aligner.t
     *unassessed*; they are never marked correct.
 11. **Pause.** When the reader pauses (or stops speaking), nothing advances.
     Recognition is suspended while the app itself speaks a word.
+12. **Late final text.** After Pause or Finish the recognizer stops listening and may
+    still deliver the *final* text of speech heard before that moment. That text may
+    complete a phrase already on screen; a new phrase arriving then is ignored. When
+    the reader continues, any phrase the recognizer never finalized is closed as final,
+    so it cannot keep later words "tentative". Every closed segment is stored in the
+    transcript log, so replaying the log reproduces the result.
+13. **Finish** stops the clocks at the moment it is pressed. The recognizer's final
+    flush afterwards is not reading time.
 
 ## Word outcomes
 
@@ -70,6 +79,15 @@ because recognizer errors look the same.
 - **Skipped or substituted** and **uncertain**: reported separately.
 - **Coverage** = evaluated ÷ total. A reading is **complete** at ≥ 95% coverage;
   otherwise it is visibly **partial**.
+  - *Why 95% and not 100%:* recognizers often drop a word at the very start (before
+    they are listening) or the last word (cut off by pressing Finish). 95% tolerates
+    that on a 60–120-word Grade 2–4 passage while never calling an attempt that stopped
+    part-way "whole story read".
+  - *What it is not:* coverage says how much of the passage the reader got through. It
+    is **not** accuracy, mastery, a pass mark, or a grade. It only decides the "Whole
+    story" / "Partial" label, eligibility for the Story Finisher badge, and which
+    attempts count for "latest CWPM (complete)" in the teacher view. 95% is a proposed
+    default of this app, not a school or curriculum benchmark.
 - **Practice duration** = active recording time (excludes explicit pauses and the app
   being in the background).
 - **Assessed time** = the assessment clock: time the recognizer was listening while
@@ -90,7 +108,8 @@ An attempt is `needs_review` when any of these is true:
 - uncertain words are ≥ 20% of evaluated words;
 - skipped plus substituted words are ≥ 50% of evaluated words (with at least 5
   evaluated), which suggests noise or microphone trouble;
-- recognition was interrupted for more than 2 s.
+- recognition was interrupted for more than 2 s, or stopped and did not recover
+  (from 1.1.0, however short the gap).
 
 Teachers can record word-level corrections. Corrections are appended with the teacher
 and time, the machine result is never modified, and the reviewed view is recomputed
@@ -98,10 +117,27 @@ with `rescoreWithCorrections`.
 
 ## Unassessed attempts
 
-When no suitable recognizer is available, the language is not verified, or no speech
-was heard, the attempt is saved with status `unassessed`, completion `unknown`, zero
-word counts and no CWPM. The learner sees "Practice saved—word assessment
-unavailable." Nothing is estimated.
+When no suitable recognizer is available, the language is not verified, or no words
+were recognized, the attempt is saved with status `unassessed`, completion `unknown`
+and no CWPM. Its stored word counts are zero only because nothing was evaluated; every
+screen and export shows them as *not checked* (empty), never as a score of 0. The
+learner sees "Practice saved—word assessment unavailable." Nothing is estimated.
+
+The reason tells recognition problems apart from a silent reader:
+
+| Reason | When |
+|---|---|
+| `recognition_unavailable` | No allowed recognizer on this device (or cloud checking not allowed / offline). |
+| `language_not_verified` | The story language has no verified recognizer (Filipino). |
+| `recognition_failed` | The recognizer failed, **or** (from 1.1.0) no words were recognized although the microphone picked up voice for at least 3 s. The learner is told this is a word-checking problem, not their reading. |
+| `no_speech_detected` | No words were recognized and the microphone picked up little or no voice. The message suggests the microphone may be too far or too quiet; it does not say the child did not read. |
+| `listen_mode` | Listening practice; never assessed. |
+
+**What happens next.** The attempt and its recording are kept. For a reader linked to
+an account, "Ask my teacher to review" queues a review request; the teacher can listen
+when recordings are shared and record word-level corrections. A device-only reader's
+attempt stays on the device. Saved recordings are not transcribed later on the device
+(see the README's known limitations).
 
 ## Rewards
 
@@ -121,3 +157,15 @@ Performance rewards (assessed, complete read-aloud attempts only):
 A unique `(learner, badge, source_key)` key makes awards idempotent. Rewards computed
 on the device are shown as "waiting to be checked" until the server confirms them.
 There are no rankings or comparisons between learners.
+
+## Change log
+
+- **score-1.1.0** (2026-10-15):
+  - Recognition that stopped and did not recover always adds `recognition_interrupted`
+    (before: only when the measured gap exceeded 2 s).
+  - With no recognized words, the reason is `recognition_failed` when the recognizer
+    failed or voice was picked up for ≥ 3 s (before: always `no_speech_detected`).
+  - The controller now accepts the recognizer's final text for phrases already on
+    screen after Pause/Finish, and closes unfinalized phrases when reading continues.
+    The aligner rules (`align-1.0.0`) are unchanged.
+- **score-1.0.0**: initial rules.

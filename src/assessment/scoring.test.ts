@@ -77,3 +77,28 @@ describe('scoring rules', () => {
     expect(reviewed).toMatchObject({ correctWords: 3, method: 'teacher_review', status: 'assessed', cwpm: 15 });
   });
 });
+
+describe('recognition failures are not learner results', () => {
+  const passage = tokenizePassage('Pip is a little puppy. Pip likes to run and jump.', 'en');
+  const silentResult = () => new StreamingAligner(passage.words, 'en').finish();
+
+  it('with no recognized words, a failed recognizer or detected voice means recognition failed', () => {
+    const t = timing(20_000);
+    expect(assessAttempt({ result: silentResult(), timing: t, method: 'transcript_alignment_live', engine }).summary.unassessedReason).toBe('no_speech_detected');
+    expect(assessAttempt({ result: silentResult(), timing: t, method: 'transcript_alignment_live', engine, recognitionInterrupted: true }).summary.unassessedReason).toBe('recognition_failed');
+    const voiced = assessAttempt({ result: silentResult(), timing: t, method: 'transcript_alignment_live', engine, voiceDetected: true }).summary;
+    expect(voiced).toMatchObject({ status: 'unassessed', unassessedReason: 'recognition_failed', cwpm: null, coverage: 0, completion: 'unknown' });
+  });
+
+  it('recognition that stopped always sends the attempt to review, even when the gap was short', () => {
+    const aligner = new StreamingAligner(passage.words, 'en');
+    aligner.update('a', 'pip is a little puppy pip likes', true, 8_000);
+    const result = aligner.finish();
+    const short = { activeMs: 20_000, pausedMs: 0, interruptedMs: 500, assessedMs: 19_500 };
+    expect(assessAttempt({ result, timing: short, method: 'transcript_alignment_live', engine }).summary.reviewReasons).not.toContain('recognition_interrupted');
+    const stopped = assessAttempt({ result, timing: short, method: 'transcript_alignment_live', engine, recognitionInterrupted: true }).summary;
+    expect(stopped.status).toBe('needs_review');
+    expect(stopped.reviewReasons).toContain('recognition_interrupted');
+    expect(stopped.scoringVersion).toBe('score-1.1.0');
+  });
+});

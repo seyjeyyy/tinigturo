@@ -96,3 +96,17 @@ test('an attempt interrupted by a reload can be recovered', async ({ page }) => 
   await page.goto('/progress');
   await expect(page.getByText('Recovered')).toBeVisible();
 });
+
+test('a reader-only page explains why a reader is needed, then returns there after choosing', async ({ page }) => {
+  await installApp(page);
+  await page.goto('/progress');
+  await expect(page.getByText('Who is reading?')).toBeVisible();
+  await expect(page).toHaveURL(/\/progress$/); // no silent redirect
+  await page.getByRole('link', { name: 'Choose a reader' }).click();
+  await page.getByRole('button', { name: 'Add a reader' }).first().click();
+  const dialog = page.getByRole('dialog', { name: 'Add a reader' });
+  await dialog.getByLabel('First name or nickname').fill('Mia');
+  await dialog.getByRole('button', { name: 'Add reader' }).click();
+  await expect(page.getByRole('heading', { name: 'My progress' })).toBeVisible();
+  await expect(page).toHaveURL(/\/progress$/);
+});

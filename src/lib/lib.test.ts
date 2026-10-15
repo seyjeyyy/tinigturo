@@ -5,6 +5,8 @@ import { evaluateCloudConfig } from '../backend/config';
 import { classifyError } from '../backend/errors';
 import { backoffDelay } from '../sync/outbox';
 import { UpdateStore } from '../pwa/updateStore';
+import { safeReturnPath } from './paths';
+import { ATTEMPT_CSV_HEADER, attemptCsvRow } from '../features/teacher/attemptExport';
 
 describe('CSV export', () => {
   it('quotes values and neutralizes spreadsheet formulas', () => {
@@ -84,5 +86,46 @@ describe('auth email link errors', () => {
     expect(readAuthRedirectError(query, '')).toEqual({ code: 'otp_expired', description: 'Email link is invalid or has expired' });
     expect(readAuthRedirectError('', '#error=access_denied&error_code=otp_expired&error_description=x')?.code).toBe('otp_expired');
     expect(readAuthRedirectError('?mode=read', '')).toBeNull();
+  });
+});
+
+describe('return paths after choosing a reader', () => {
+  it('accepts only paths inside this app', () => {
+    expect(safeReturnPath('/progress')).toBe('/progress');
+    expect(safeReturnPath('/read/abc?mode=read')).toBe('/read/abc?mode=read');
+    expect(safeReturnPath('//evil.example')).toBeNull();
+    expect(safeReturnPath('/\\evil.example')).toBeNull(); // browsers treat "/\" like "//"
+    expect(safeReturnPath('https://evil.example')).toBeNull();
+    expect(safeReturnPath('/learners')).toBeNull();
+    expect(safeReturnPath(undefined)).toBeNull();
+  });
+});
+
+describe('teacher attempt export', () => {
+  const base = {
+    id: 's', learner_id: 'l', started_at: '2026-10-15T01:00:00Z', mode: 'read_aloud', active_ms: 42_000, audio_status: 'none',
+    review_requested: false, learners: { display_name: 'Ana' }, story_versions: { title: 'The Red Kite', language: 'en' },
+  };
+  const measures = {
+    completion: 'unknown', method: 'none', total_words: 80, evaluated_words: 0, correct_words: 0, uncertain_words: 0,
+    substituted_words: 0, skipped_words: 0, coverage: 0, cwpm: null, assessed_ms: null, scoring_version: 'score-1.1.0', engine_id: null, engine_version: null,
+  };
+
+  it('leaves word measures empty for unassessed attempts instead of exporting zeros', () => {
+    const row = attemptCsvRow({ ...base, session_assessments: { ...measures, status: 'unassessed' } });
+    expect(row).toHaveLength(ATTEMPT_CSV_HEADER.length);
+    const at = (column: string) => row[ATTEMPT_CSV_HEADER.indexOf(column)];
+    expect(at('Assessment status')).toBe('unassessed');
+    expect(at('Total words')).toBe(80);
+    for (const column of ['Evaluated words', 'Correct words', 'Coverage', 'CWPM', 'Assessed time (s)']) expect(at(column)).toBeNull();
+    expect(toCsv(ATTEMPT_CSV_HEADER, [row]).split('\r\n')[1]).toContain('unassessed,unknown,none,,score-1.1.0,80,,,,,,,,,none');
+  });
+
+  it('keeps real zeros for assessed attempts', () => {
+    const row = attemptCsvRow({ ...base, session_assessments: { ...measures, status: 'needs_review', completion: 'partial', evaluated_words: 6, correct_words: 0, coverage: 0.075, assessed_ms: 12_400 } });
+    const at = (column: string) => row[ATTEMPT_CSV_HEADER.indexOf(column)];
+    expect(at('Correct words')).toBe(0);
+    expect(at('Evaluated words')).toBe(6);
+    expect(at('Assessed time (s)')).toBe(12);
   });
 });

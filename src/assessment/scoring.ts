@@ -18,8 +18,11 @@ import { NORMALIZER_VERSION } from '../text/normalize';
  *   is kept. For complete attempts, time stops when the last passage word was reached.
  * - CWPM = correct words / assessed minutes, only when assessed time >= 10 s.
  * - Duration never determines accuracy or completion.
+ * - 1.1.0: an attempt whose recognition stopped and did not recover always needs
+ *   review; with no words recognized it is unassessed as `recognition_failed` (not
+ *   `no_speech_detected`) when the recognizer failed or the microphone picked up voice.
  */
-export const SCORING_VERSION = 'score-1.0.0';
+export const SCORING_VERSION = 'score-1.1.0';
 export const COMPLETE_COVERAGE = 0.95;
 export const MIN_CWPM_MS = 10_000;
 
@@ -158,6 +161,8 @@ export function summarizeStatuses(input: {
   insertions?: number;
   repetitions?: number;
   lastProgressAt?: number | null;
+  /** Recognition stopped during the attempt and did not recover. */
+  recognitionInterrupted?: boolean;
 }): AssessmentSummary {
   const { statuses, timing, method, engine } = input;
   const totalWords = statuses.length;
@@ -178,7 +183,7 @@ export function summarizeStatuses(input: {
   if (evaluatedWords >= 5 && (counts.skipped + counts.substituted) / evaluatedWords >= 0.5) {
     reviewReasons.push('low_match_rate');
   }
-  if (timing.interruptedMs > 2_000 && method === 'transcript_alignment_live') {
+  if (method === 'transcript_alignment_live' && (input.recognitionInterrupted || timing.interruptedMs > 2_000)) {
     reviewReasons.push('recognition_interrupted');
   }
 
@@ -216,10 +221,19 @@ export function assessAttempt(input: {
   timing: AttemptTiming;
   method: AssessmentMethod;
   engine: EngineInfo;
+  /** Recognition stopped during the attempt and did not recover. */
+  recognitionInterrupted?: boolean;
+  /**
+   * The microphone picked up voice for a while. With no recognized words, that points
+   * to a recognition problem rather than a silent reader.
+   */
+  voiceDetected?: boolean;
 }): { summary: AssessmentSummary; words: WordResult[] } {
   const { result, timing, method, engine } = input;
   if (result.heardWords === 0) {
-    return { summary: unassessedSummary(result.statuses.length, timing, 'no_speech_detected', engine), words: [] };
+    // Never blame the reader for what may be a recognizer failure.
+    const reason: UnassessedReason = input.recognitionInterrupted || input.voiceDetected ? 'recognition_failed' : 'no_speech_detected';
+    return { summary: unassessedSummary(result.statuses.length, timing, reason, engine), words: [] };
   }
   const summary = summarizeStatuses({
     statuses: result.statuses,
@@ -229,6 +243,7 @@ export function assessAttempt(input: {
     insertions: result.insertions,
     repetitions: result.repetitions,
     lastProgressAt: result.lastProgressAt,
+    recognitionInterrupted: input.recognitionInterrupted,
   });
   const words = result.statuses.map((status, index) => ({ index, status, heard: result.heard[index] }));
   return { summary, words };

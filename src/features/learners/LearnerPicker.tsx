@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
+import { safeReturnPath } from '../../lib/paths';
 import { UserPlus } from 'lucide-react';
 import { useApp } from '../../app/AppContext';
 import { AVATARS, type AvatarId } from '../../domain/types';
@@ -78,11 +79,13 @@ export function LearnerPicker() {
   const { learners, selectLearner, partition, auth, deviceSettings, useDevicePartition, setUseDevicePartition, cloud } = useApp();
   const [creating, setCreating] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnTo = safeReturnPath((location.state as { from?: unknown } | null)?.from);
   const shared = deviceSettings.deviceMode === 'shared_classroom';
 
   const choose = async (id: string) => {
     await selectLearner(id);
-    navigate('/');
+    navigate(returnTo ?? '/', { replace: Boolean(returnTo) });
   };
 
   return (

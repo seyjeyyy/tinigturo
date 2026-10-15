@@ -20,6 +20,7 @@ import { Passage, WordLegend, type WordVisual } from './Passage';
 import { WordCoach } from './WordCoach';
 import { HelpDialog } from './HelpDialog';
 import { ResultPanel } from './ResultPanel';
+import { MicrophoneBlockedSteps } from './MicrophoneHelp';
 import { useReadAloud } from './useReadAloud';
 import { UpdateBanner } from '../../pwa/UpdateBanner';
 import { Button, IconButton } from '../../ui/Button';
@@ -204,6 +205,7 @@ function Reader({ story: liveStory }: { story: StoryVersionRecord }) {
             <ResultPanel
               session={result.session}
               awards={result.awards}
+              stoppedBy={result.stoppedBy}
               onReadAgain={() => controller?.reset()}
               onReviewWords={() => setShowResultWords(true)}
             />
@@ -297,7 +299,17 @@ function Reader({ story: liveStory }: { story: StoryVersionRecord }) {
           <>
             <Button variant="secondary" onClick={() => blocker.reset?.()}>Keep reading</Button>
             <Button variant="danger" onClick={async () => { await controller?.cancel(); blocker.proceed?.(); }}>Throw away and leave</Button>
-            <Button onClick={async () => { await controller?.finish(); blocker.proceed?.(); }}>Save and leave</Button>
+            <Button
+              onClick={async () => {
+                await controller?.finish();
+                // Leave only once the reading is saved; otherwise stay so the reader sees
+                // the problem (the attempt stays recoverable from Home either way).
+                if (controller?.getSnapshot().recording.status === 'result') blocker.proceed?.();
+                else blocker.reset?.();
+              }}
+            >
+              Save and leave
+            </Button>
           </>
         }
       >
@@ -362,11 +374,13 @@ function ReadAloudBar(props: {
   const { settings } = useApp();
   // Exactly one message at a time, chosen by priority.
   let message: React.ReactNode = null;
-  if (status === 'error' && snapshot?.recording.status === 'error') {
-    const error = (snapshot.recording as { error: RecordingError }).error;
+  const error = status === 'error' && snapshot?.recording.status === 'error' ? (snapshot.recording as { error: RecordingError }).error : null;
+  const blocked = error?.kind === 'permission_denied';
+  if (error && snapshot) {
     message = (
       <Alert tone="error" title={error.message} className="mb-2">
         {error.help}
+        {blocked ? <MicrophoneBlockedSteps /> : null}
         {snapshot.unsavedRecording ? (
           <div className="mt-2">
             <Button size="sm" variant="secondary" onClick={() => downloadBlob('tinig-turo-reading.webm', snapshot.unsavedRecording!)}>Download the recording</Button>
@@ -397,7 +411,7 @@ function ReadAloudBar(props: {
       <div className="flex flex-wrap items-center gap-2">
         {status === 'idle' || status === 'error' ? (
           <Button size="lg" icon={<Mic size={22} />} onClick={status === 'error' ? props.onRetry : props.onStart} disabled={!plan}>
-            {status === 'error' ? 'Try again' : 'Start'}
+            {status === 'error' ? (blocked ? 'Check again' : 'Try again') : 'Start'}
           </Button>
         ) : null}
         {status === 'requesting_permission' ? <Button size="lg" busy disabled>Starting…</Button> : null}

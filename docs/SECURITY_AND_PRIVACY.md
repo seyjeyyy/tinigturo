@@ -69,6 +69,10 @@ UI says so. No audio is ever uploaded as a silent fallback.
 
 ## Browser and device
 
+- The microphone is requested only when the reader presses Start. If it has been
+  blocked, the app shows how to allow it and does not request it again until the
+  permission changes. Leaving the reading screen releases the microphone, including
+  while the browser's permission prompt is still open.
 - Only the project URL and the publishable key are used in the browser. Service-role
   or secret keys are detected and refused.
 - Story text is rendered as text nodes; HTML in stories is shown literally. The

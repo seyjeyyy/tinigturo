@@ -6,7 +6,7 @@ import { createLearner } from '../data/learners';
 import { recoverSession } from '../data/sessions';
 import { STARTER_STORIES } from '../content/starterStories';
 import { tokenizePassage } from '../text/tokenize';
-import { mapMediaError, type RecordingError } from '../recording/machine';
+import { mapMediaError, recordingError, type RecordingError } from '../recording/machine';
 import type { RecorderCallbacks } from '../recording/recorder';
 import type { SpeechHandlers, SpeechProvider } from '../speech/types';
 import type { RecognitionPlan } from '../speech/plan';
@@ -15,12 +15,14 @@ class FakeRecorder implements RecorderLike {
   readonly mimeType = 'audio/webm';
   mediaStream: MediaStream | null = null;
   callbacks: RecorderCallbacks | null = null;
+  acquire: () => Promise<MediaStream>;
   released = false;
-  constructor(private readonly deny: unknown = null) {}
-  async acquire() {
-    if (this.deny) throw mapMediaError(this.deny);
-    this.mediaStream = {} as MediaStream;
-    return this.mediaStream;
+  constructor(private readonly deny: unknown = null) {
+    this.acquire = async () => {
+      if (this.deny) throw mapMediaError(this.deny);
+      this.mediaStream = {} as MediaStream;
+      return this.mediaStream;
+    };
   }
   start(callbacks: RecorderCallbacks) {
     this.callbacks = callbacks;
@@ -280,6 +282,143 @@ describe('ReadAloudController', () => {
     // The atomic save left no half-saved attempt or orphaned sync op behind.
     expect(await db.outbox.count()).toBe(0);
     expect((await db.sessions.toArray())[0].status).toBe('in_progress');
+  });
+
+  it('leaving the screen while the permission prompt is open does not leave the microphone on', async () => {
+    let grant!: () => void;
+    const recorder = new FakeRecorder();
+    recorder.acquire = () => new Promise<MediaStream>((resolve) => { grant = () => resolve({} as MediaStream); });
+    const { controller } = make({ recorder: () => recorder });
+    const starting = controller.begin();
+    await Promise.resolve();
+    controller.dispose(); // navigated away while the browser asks
+    grant(); // the adult allows the microphone afterwards
+    await starting;
+    expect(recorder.released).toBe(true);
+    expect(recorder.callbacks).toBeNull(); // never started recording
+    expect(await db.sessions.count()).toBe(0);
+  });
+
+  it('cancelling while the attempt is being created leaves no unfinished attempt behind', async () => {
+    const { controller, recorders } = make();
+    const unsubscribe = controller.subscribe(() => {
+      if (controller.getSnapshot().recording.status === 'ready') void controller.cancel();
+    });
+    await controller.begin();
+    unsubscribe();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(controller.getSnapshot().recording.status).toBe('idle');
+    expect((recorders[0] as FakeRecorder).released).toBe(true);
+    expect(await db.sessions.count()).toBe(0);
+  });
+
+  it('a blocked microphone is explained without asking the browser again', async () => {
+    const { controller, recorders } = make({ checkMicrophone: async () => 'denied' });
+    await controller.begin();
+    const state = controller.getSnapshot().recording;
+    expect(state.status).toBe('error');
+    expect((state as { error: RecordingError }).error.kind).toBe('permission_denied');
+    expect(recorders).toHaveLength(0); // getUserMedia was never called
+  });
+
+  it('the final text of speech heard before Pause completes the phrase, but new speech while paused does not', async () => {
+    const { controller, provider } = make();
+    await controller.begin();
+    time += 2_000;
+    provider!.say('a', 'pip is a', false);
+    controller.pause();
+    provider!.say('a', 'pip is a little', true); // recognizer flush after Pause
+    provider!.say('b', 'puppy pip likes', true); // a new phrase while paused
+    let snap = controller.getSnapshot().alignment!;
+    expect(snap.current).toBe(3);
+    expect(snap.words.slice(0, 4).every((w) => w && !w.tentative)).toBe(true);
+    expect(snap.words[4]).toBeNull();
+    controller.resume();
+    provider!.say('c', 'puppy', true);
+    snap = controller.getSnapshot().alignment!;
+    expect(snap.current).toBe(4);
+    expect(snap.confirmedThrough).toBe(4);
+    await controller.cancel();
+  });
+
+  it('text a recognizer never finalized before a pause stops being tentative after Continue', async () => {
+    const { controller, provider } = make();
+    await controller.begin();
+    provider!.say('a', 'pip is a', false);
+    controller.pause(); // the engine stops without finalizing segment "a"
+    controller.resume();
+    provider!.say('b', 'little puppy', true);
+    const snap = controller.getSnapshot().alignment!;
+    expect(snap.words.slice(0, 5).every((w) => w && !w.tentative)).toBe(true);
+    expect(snap.confirmedThrough).toBe(4);
+    await controller.cancel();
+  });
+
+  it('counts the final words the recognizer delivers after Finish, timed at the moment reading stopped', async () => {
+    const { controller, provider } = make();
+    await controller.begin();
+    time += 12_000;
+    provider!.say('a', 'pip is a little', false);
+    provider!.stop = async () => {
+      time += 1_500; // flushing takes a moment; it is not reading time
+      provider!.say('a', 'pip is a little puppy', true);
+    };
+    await controller.finish();
+    const session = controller.getSnapshot().result!.session;
+    expect(session.wordResults!.slice(0, 5).every((w) => w.status === 'correct')).toBe(true);
+    expect(session.timing.activeMs).toBe(12_000);
+    expect(session.assessment?.assessedMs).toBeLessThanOrEqual(12_000);
+  });
+
+  it('a recognizer that fails before recognizing any words is not reported as a silent reader', async () => {
+    const { controller, provider } = make();
+    await controller.begin();
+    provider!.handlers!.onFatalError('not_allowed', 'speech service blocked');
+    time += 20_000;
+    await controller.finish();
+    const assessment = controller.getSnapshot().result!.session.assessment!;
+    expect(assessment).toMatchObject({ status: 'unassessed', unassessedReason: 'recognition_failed', cwpm: null, completion: 'unknown' });
+  });
+
+  it('voice picked up with no recognized words is a recognition problem; a silent attempt is not', async () => {
+    const loud = make();
+    await loud.controller.begin();
+    const callbacks = (loud.recorders[0] as FakeRecorder).callbacks!;
+    for (let i = 0; i < 25; i++) {
+      time += 200;
+      callbacks.onLevel!(0.5);
+    }
+    await loud.controller.finish();
+    expect(loud.controller.getSnapshot().result!.session.assessment?.unassessedReason).toBe('recognition_failed');
+
+    const quiet = make();
+    await quiet.controller.begin();
+    time += 15_000;
+    await quiet.controller.finish();
+    expect(quiet.controller.getSnapshot().result!.session.assessment?.unassessedReason).toBe('no_speech_detected');
+  });
+
+  it('a microphone that disconnects saves what was recorded and says why the reading stopped', async () => {
+    const { controller, provider, recorders } = make();
+    await controller.begin();
+    time += 6_000;
+    provider!.say('a', 'pip is a little puppy', true);
+    (recorders[0] as FakeRecorder).callbacks!.onError(recordingError('microphone_disconnected'));
+    await vi.waitFor(() => expect(controller.getSnapshot().recording.status).toBe('result'));
+    const result = controller.getSnapshot().result!;
+    expect(result.stoppedBy?.kind).toBe('microphone_disconnected');
+    expect(result.session.status).toBe('saved');
+    expect(result.session.audio.status).toBe('local');
+    expect(result.session.wordResults!.slice(0, 5).every((w) => w.status === 'correct')).toBe(true);
+  });
+
+  it('shows no silence hint when the device cannot report input levels', async () => {
+    const { controller, provider } = make({ silenceAfterMs: 8_000 });
+    await controller.begin();
+    time += 30_000;
+    provider!.say('a', 'hmm', false); // any update re-evaluates the notice
+    expect(controller.getSnapshot().notice).toBeNull();
+    await controller.cancel();
   });
 
   it('ignores callbacks from a previous attempt', async () => {

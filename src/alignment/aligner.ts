@@ -517,6 +517,29 @@ export class StreamingAligner {
     return this.snapshot();
   }
 
+  /** Whether the recognizer may still revise this segment. */
+  hasOpenSegment(segmentId: string): boolean {
+    const segment = this.segments.get(segmentId);
+    return Boolean(segment && !segment.final);
+  }
+
+  /**
+   * Treats every still-open segment as final. Used when the recognizer's listening run
+   * has ended without finalizing them (for example after a pause), so tentative text
+   * that will never be revised cannot hold back confirmed progress.
+   */
+  closeOpenSegments(): AlignmentSnapshot {
+    let changed = false;
+    for (const segment of this.segments.values()) {
+      if (!segment.final) {
+        segment.final = true;
+        changed = true;
+      }
+    }
+    if (changed) this.recompute();
+    return this.snapshot();
+  }
+
   /** "Continue from here": the reader moves the reading position manually. */
   reposition(toIndex: number, t: number): AlignmentSnapshot {
     // Any partial text from before the reposition is frozen as final so it cannot be

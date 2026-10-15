@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { ReadAloudController } from '../../reading/readAloudController';
 import { AudioRecorder, selectAudioFormat } from '../../recording/recorder';
+import { queryMicrophonePermission } from '../../recording/permissions';
 import { createProvider, type RecognitionPlan } from '../../speech/plan';
 import type { StoryVersionRecord } from '../../domain/types';
 import type { Passage } from '../../text/tokenize';
@@ -34,6 +35,7 @@ export function useReadAloud(input: {
       createRecorder: (mime) => new AudioRecorder(mime),
       createProvider: (p) => createProvider(p, story.language),
       shareAudio: () => shareAudioRef.current,
+      checkMicrophone: queryMicrophonePermission,
     });
   }, [db, story, passage, learnerId, assignmentId, plan]);
 

@@ -9,13 +9,14 @@ import { Alert, StatusBadge } from '../../ui/feedback';
 import { Button, ButtonLink } from '../../ui/Button';
 import { useApp } from '../../app/AppContext';
 import { requestTeacherReview } from '../../data/sessions';
+import type { RecordingError } from '../../recording/machine';
 import { useLiveQuery } from 'dexie-react-hooks';
 
 const UNASSESSED_TEXT: Record<string, string> = {
   recognition_unavailable: 'Word checking was not available on this device, so we did not check the words.',
   language_not_verified: 'Word checking is not available for this language yet, so we did not check the words.',
-  no_speech_detected: 'We did not hear any reading, so there is nothing to check. Try again a little louder.',
-  recognition_failed: 'Word following stopped working, so we could not check the words.',
+  no_speech_detected: 'No words were recognized, so there was nothing to check. If you did read aloud, the microphone may have been too far away or too quiet.',
+  recognition_failed: 'Word checking stopped working or could not recognize the words, so we could not check them. This is a problem with word checking, not with your reading.',
   listen_mode: 'This was listening practice.',
 };
 
@@ -71,10 +72,18 @@ export function RewardList({ awards }: { awards: LocalReward[] }) {
   );
 }
 
-export function ResultPanel({ session, awards, onReadAgain, onReviewWords }: { session: ReadingSessionRecord; awards: LocalReward[]; onReadAgain: () => void; onReviewWords: () => void }) {
+export function ResultPanel({ session, awards, stoppedBy = null, onReadAgain, onReviewWords }: {
+  session: ReadingSessionRecord;
+  awards: LocalReward[];
+  /** A recording failure that ended the attempt early (not something the reader did). */
+  stoppedBy?: RecordingError | null;
+  onReadAgain: () => void;
+  onReviewWords: () => void;
+}) {
   const { db, partition } = useApp();
   const a = session.assessment;
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [reviewError, setReviewError] = useState<string | null>(null);
   const recording = useLiveQuery(() => db.recordings.get(session.id), [db, session.id]);
   const current = useLiveQuery(() => db.sessions.get(session.id), [db, session.id]) ?? session;
 
@@ -90,6 +99,12 @@ export function ResultPanel({ session, awards, onReadAgain, onReviewWords }: { s
       <h2 id="result-title" className="text-2xl font-bold" tabIndex={-1}>
         {a?.status === 'unassessed' ? 'Practice saved' : 'Nice reading!'}
       </h2>
+
+      {stoppedBy ? (
+        <Alert tone="warning" title="The recording stopped early">
+          {stoppedBy.message} {stoppedBy.help}
+        </Alert>
+      ) : null}
 
       {a?.status === 'unassessed' ? (
         <Alert tone="info" title="Practice saved—word assessment unavailable.">
@@ -132,12 +147,30 @@ export function ResultPanel({ session, awards, onReadAgain, onReviewWords }: { s
         <Button icon={<RotateCcw size={20} />} onClick={onReadAgain}>Read again</Button>
         {a && a.status !== 'unassessed' ? <Button variant="secondary" icon={<Play size={20} />} onClick={onReviewWords}>See the words to practice</Button> : null}
         {partition !== 'device' && !current.reviewRequested ? (
-          <Button variant="secondary" icon={<UserCheck size={20} />} onClick={() => void requestTeacherReview(db, session.id)}>Ask my teacher to review</Button>
+          <Button
+            variant="secondary"
+            icon={<UserCheck size={20} />}
+            onClick={() => {
+              setReviewError(null);
+              requestTeacherReview(db, session.id).catch(() => setReviewError('The request could not be saved on this device. Try again.'));
+            }}
+          >
+            Ask my teacher to review
+          </Button>
         ) : current.reviewRequested ? <StatusBadge tone="blue" icon="✓">Teacher review requested</StatusBadge> : null}
         <ButtonLink to="/stories" variant="ghost">Back to stories</ButtonLink>
       </div>
+      {reviewError ? <Alert tone="error">{reviewError}</Alert> : null}
+      {partition !== 'device' && a?.status === 'unassessed' && session.mode === 'read_aloud' && (current.audio.status === 'local' || current.audio.status === 'none') ? (
+        <p className="text-sm text-ink-soft">
+          A teacher can check an unchecked reading by listening to it, but only if recordings are shared. A grown-up can turn on sharing in <Link to="/settings" className="underline">Settings</Link>.
+        </p>
+      ) : null}
       {partition === 'device' ? (
-        <p className="text-sm text-ink-soft">This reader is saved only on this device. <Link to="/account" className="underline">Sign in</Link> to share progress with a teacher.</p>
+        <p className="text-sm text-ink-soft">
+          This reader is saved only on this device, so no teacher can see this reading. You and your grown-ups can listen to it here.{' '}
+          <Link to="/account" className="underline">Sign in</Link> to read with a class account.
+        </p>
       ) : null}
     </section>
   );

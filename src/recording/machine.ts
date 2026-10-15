@@ -13,6 +13,7 @@
 export type RecordingErrorKind =
   | 'permission_denied'
   | 'no_microphone'
+  | 'microphone_disconnected'
   | 'microphone_busy'
   | 'insecure_context'
   | 'unsupported'
@@ -100,11 +101,15 @@ export function recordingReducer(state: RecordingState, event: RecordingEvent): 
 export const RECORDING_ERRORS: Record<RecordingErrorKind, Omit<RecordingError, 'kind'>> = {
   permission_denied: {
     message: 'Tinig Turo is not allowed to use the microphone.',
-    help: 'Allow microphone access in the browser’s site settings (the lock icon next to the address), then try again.',
+    help: 'A grown-up can allow the microphone in the settings for this app or website. You can still read without recording.',
   },
   no_microphone: {
     message: 'No microphone was found.',
     help: 'Plug in or turn on a microphone or headset, then try again.',
+  },
+  microphone_disconnected: {
+    message: 'The microphone stopped working during the reading.',
+    help: 'What was recorded before it stopped has been saved. Check the headset or microphone, then start a new reading.',
   },
   microphone_busy: {
     message: 'The microphone is being used by another app.',

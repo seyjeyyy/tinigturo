@@ -79,8 +79,12 @@ learner action ─▶ IndexedDB (partition for this identity)
 
 `ReadAloudController` (`src/reading/readAloudController.ts`) owns one attempt:
 
-1. `REQUEST`: choose an audio format at runtime, then request the microphone. Denied,
-   missing, busy, insecure and unsupported cases each have their own message.
+1. `REQUEST`: choose an audio format at runtime, then read the microphone permission
+   *without prompting* (`src/recording/permissions.ts`). If it is blocked, the app shows
+   steps for this kind of device (installed Android app, Android browser, iPhone/iPad,
+   desktop, or a device-level block) and does not call `getUserMedia` again until the
+   permission changes. Otherwise it requests the microphone. Denied, missing, busy,
+   disconnected, insecure and unsupported cases each have their own message.
 2. `GRANTED`: an in-progress session row is written immediately.
 3. `START`:
    - MediaRecorder emits a 1 s chunk each second, saved to IndexedDB.
@@ -90,19 +94,28 @@ learner action ─▶ IndexedDB (partition for this identity)
 4. Pause and resume affect the recorder, recognizer and clock together. When the app
    is hidden it pauses automatically, and the reader resumes.
 5. `FINISH` → `processing`:
-   1. flush the recognizer;
-   2. stop the clock and recorder;
-   3. assess (or mark unassessed);
-   4. `finalizeSession` saves everything atomically.
+   1. stop the clock (the reading ended when Finish was pressed);
+   2. flush the recognizer: its final text for phrases already on screen is still
+      accepted, new phrases are not;
+   3. stop the recorder (with a timeout, so a broken recorder cannot hang "Saving…");
+   4. assess (or mark unassessed);
+   5. `finalizeSession` saves everything atomically.
 
    The state then moves to `result`.
+   - A **recording failure** (microphone unplugged, recorder error) saves the attempt as
+     far as it got and the result says why it stopped. A **recognition failure** keeps
+     recording; word following stops, and the attempt goes to review or is unassessed
+     as `recognition_failed`. The two are never confused.
 6. Cancel discards the attempt after confirmation. Leaving the page releases the
    microphone; the in-progress attempt stays recoverable from Home ("Save what was
    read").
 
 Every event carries the attempt's token, so callbacks from an earlier attempt are
 ignored. The state machine ignores invalid transitions, which makes double-taps
-harmless.
+harmless. After every `await` in `begin()` the controller re-checks that its attempt is
+still current and the screen still open: leaving while the permission prompt is shown
+releases the microphone instead of recording with nobody watching, and cancelling while
+the attempt is being created leaves no unfinished attempt behind.
 
 ## Service worker and caching
 

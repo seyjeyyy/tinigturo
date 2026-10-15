@@ -10,3 +10,12 @@ playwright-report
 *.local
 supabase/.temp
 supabase/.branches
+
+# Android (TWA) project: only the built APK in public/download is served by the site.
+android/.gradle
+android/build
+android/app/build
+android/local.properties
+android/*.aab
+*.jks
+*.keystore

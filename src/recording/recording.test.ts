@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { INITIAL_RECORDING_STATE, mapMediaError, recordingError, recordingReducer, type RecordingEvent, type RecordingState } from './machine';
 import { SessionClock } from './clock';
-import { selectAudioFormat } from './recorder';
+import { AudioRecorder, selectAudioFormat } from './recorder';
 
 function run(events: RecordingEvent[], start: RecordingState = INITIAL_RECORDING_STATE) {
   return events.reduce(recordingReducer, start);
@@ -134,5 +134,37 @@ describe('SessionClock — pause and resume timing', () => {
     clock.setListening(true);
     time.advance(2_000);
     expect(clock.stop()).toEqual({ activeMs: 7_000, pausedMs: 1_000, interruptedMs: 0, assessedMs: 6_000 });
+  });
+});
+
+describe('AudioRecorder', () => {
+  it('stopping never hangs when the browser does not report that recording stopped', async () => {
+    vi.useFakeTimers();
+    class StuckMediaRecorder {
+      state = 'recording';
+      ondataavailable: ((event: { data: Blob }) => void) | null = null;
+      onerror: (() => void) | null = null;
+      onstop: (() => void) | null = null;
+      start() {}
+      requestData() {
+        this.ondataavailable?.({ data: new Blob(['last second'], { type: 'audio/webm' }) });
+      }
+      stop() {} // a broken recorder that never fires onstop
+    }
+    vi.stubGlobal('MediaRecorder', StuckMediaRecorder);
+    try {
+      const recorder = new AudioRecorder('audio/webm');
+      (recorder as unknown as { stream: unknown }).stream = { getAudioTracks: () => [], getTracks: () => [] };
+      const chunks: number[] = [];
+      recorder.start({ onChunk: (_blob, seq) => chunks.push(seq), onError: () => undefined });
+      const stopped = recorder.stop(1_000);
+      await vi.advanceTimersByTimeAsync(1_000);
+      const blob = await stopped;
+      expect(blob?.size).toBeGreaterThan(0); // what was received is kept
+      expect(chunks).toEqual([0]);
+    } finally {
+      vi.unstubAllGlobals();
+      vi.useRealTimers();
+    }
   });
 });
