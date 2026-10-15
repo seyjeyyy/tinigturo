@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.tinigturo.app",
+      "sha256_cert_fingerprints": [
+        "FA:67:98:9B:54:44:2A:5F:AB:6E:58:D5:52:E6:EA:50:5D:36:D3:B9:30:7D:15:6C:4D:6A:5E:9B:1B:FB:59:F1"
+      ]
+    }
+  }
+]

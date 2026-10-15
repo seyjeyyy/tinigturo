@@ -136,6 +136,7 @@ export function LearnerPicker() {
           </Alert>
         ) : null}
         <p><Link to="/account" className="font-semibold underline">Grown-ups: sign in, join a class, or open the teacher workspace</Link></p>
+        <p><Link to="/install" className="font-semibold underline">Get the Tinig Turo app (Android download or install)</Link></p>
       </div>
 
       <CreateLearnerDialog open={creating} onClose={() => setCreating(false)} onCreated={(id) => { setCreating(false); void choose(id); }} />

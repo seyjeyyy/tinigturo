@@ -28,6 +28,11 @@ Then follow [docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md): link the project, 
 `npx supabase db push`, optionally load the seed, set the auth redirect URLs, and
 deploy the retention function.
 
+## Get the app
+
+- **Web:** <https://tinigturo-green.vercel.app>. Install it from the browser for offline use.
+- **Android:** [download the APK](https://tinigturo-green.vercel.app/download/tinigturo.apk) (Android 7.0+, about 1 MB). See [docs/ANDROID.md](docs/ANDROID.md) for building, signing and Google Play.
+
 ## What it does
 
 **Learners** (simple navigation: Home, Stories, My Words, Progress):
@@ -78,6 +83,8 @@ deploy the retention function.
 - [docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md): backend setup, roles, retention.
 - [docs/SECURITY_AND_PRIVACY.md](docs/SECURITY_AND_PRIVACY.md): RLS model, recordings
   policy, device privacy.
+- [docs/ANDROID.md](docs/ANDROID.md): Android app (Trusted Web Activity), signing key,
+  new versions, Google Play.
 - [docs/OFFLINE_AND_PWA.md](docs/OFFLINE_AND_PWA.md): installing, offline downloads,
   storage, updates.
 - [docs/CONTENT.md](docs/CONTENT.md): starter stories and the vocabulary review process.

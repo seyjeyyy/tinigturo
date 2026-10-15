@@ -61,6 +61,7 @@ export function StudentLayout() {
       <footer className="mx-auto hidden w-full max-w-5xl gap-4 px-4 pb-6 text-sm text-ink-soft md:flex">
         <Link to="/downloads" className="inline-flex items-center gap-1 underline"><Download size={14} aria-hidden="true" />Offline downloads</Link>
         <Link to="/account" className="underline">Grown-ups: account and teacher workspace</Link>
+        <Link to="/install" className="underline">Get the app</Link>
       </footer>
       <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-30 flex gap-1 border-t-2 border-line bg-paper px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5 md:hidden">
         {NAV.map(({ to, label, icon: Icon, end }) => (

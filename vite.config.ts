@@ -55,7 +55,9 @@ export default defineConfig(({ mode }) => ({
         globPatterns: ['**/*.{js,css,html,svg,png,webmanifest,woff2}'],
         globIgnores: ['**/vosk-*.js'],
         navigateFallback: 'index.html',
-        navigateFallbackDenylist: [/^\/auth\/v1/, /^\/rest\/v1/, /^\/storage\/v1/],
+        // Never answer these with the app page: the Android download, and Digital Asset
+        // Links (which Android fetches to verify the app belongs to this site).
+        navigateFallbackDenylist: [/^\/auth\/v1/, /^\/rest\/v1/, /^\/storage\/v1/, /^\/download\//, /^\/\.well-known\//],
         cleanupOutdatedCaches: true,
         importScripts: ['sw-extra.js'],
         clientsClaim: false,
