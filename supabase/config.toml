@@ -1,0 +1,45 @@
+# Supabase CLI configuration for local development (`npx supabase start`).
+# Hosted projects are configured in the dashboard; see docs/SUPABASE_SETUP.md.
+project_id = "tinig-turo"
+
+[api]
+enabled = true
+port = 54321
+# Only `public` is exposed. Helper functions live in `private` and are not reachable.
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 17
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+additional_redirect_urls = [
+  "http://localhost:5173/account",
+  "http://localhost:5173/account/update-password",
+  "http://localhost:4173/account",
+  "http://localhost:4173/account/update-password",
+]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+enable_signup = true
+minimum_password_length = 8
+
+[auth.email]
+enable_signup = true
+enable_confirmations = true
+double_confirm_changes = true
+
+[storage]
+enabled = true
+file_size_limit = "25MiB"
+
+[functions.purge-expired-audio]
+verify_jwt = true

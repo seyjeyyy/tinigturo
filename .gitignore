@@ -1,0 +1,13 @@
+node_modules
+dist
+dev-dist
+coverage
+test-results
+playwright-report
+*.local
+.env
+.env.*
+!.env.example
+supabase/.temp
+supabase/.branches
+.DS_Store
