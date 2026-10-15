@@ -20,8 +20,11 @@ sql_paths = ["./seed.sql"]
 
 [auth]
 enabled = true
-site_url = "http://localhost:5173"
+# Production site (Vercel). Local dev URLs stay allowed as redirect targets below.
+site_url = "https://tinigturo-green.vercel.app"
 additional_redirect_urls = [
+  "https://tinigturo-green.vercel.app/account",
+  "https://tinigturo-green.vercel.app/account/update-password",
   "http://localhost:5173/account",
   "http://localhost:5173/account/update-password",
   "http://localhost:4173/account",

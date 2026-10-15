@@ -76,3 +76,13 @@ describe('service-worker update gate', () => {
     expect(applied).toBe(1);
   });
 });
+
+describe('auth email link errors', () => {
+  it('reads Supabase errors from the query string or the hash', async () => {
+    const { readAuthRedirectError } = await import('../app/AuthRedirectNotice');
+    const query = '?error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired';
+    expect(readAuthRedirectError(query, '')).toEqual({ code: 'otp_expired', description: 'Email link is invalid or has expired' });
+    expect(readAuthRedirectError('', '#error=access_denied&error_code=otp_expired&error_description=x')?.code).toBe('otp_expired');
+    expect(readAuthRedirectError('?mode=read', '')).toBeNull();
+  });
+});

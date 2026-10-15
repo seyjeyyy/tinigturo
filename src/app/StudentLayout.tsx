@@ -3,6 +3,7 @@ import { BookMarked, BookOpen, Download, Home, Settings, Sprout, Users } from 'l
 import { useApp } from './AppContext';
 import { OfflineNotice, SyncPill } from './StatusIndicators';
 import { UpdateBanner } from '../pwa/UpdateBanner';
+import { AuthRedirectNotice } from './AuthRedirectNotice';
 import { avatarById } from '../domain/types';
 import { Loading } from '../ui/feedback';
 
@@ -54,6 +55,7 @@ export function StudentLayout() {
         </div>
       </header>
       <main id="main" tabIndex={-1} className="mx-auto w-full max-w-5xl flex-1 px-4 pb-28 pt-5 md:pb-10">
+        <AuthRedirectNotice />
         {ready ? <Outlet /> : <Loading label="Opening your stories…" />}
       </main>
       <footer className="mx-auto hidden w-full max-w-5xl gap-4 px-4 pb-6 text-sm text-ink-soft md:flex">

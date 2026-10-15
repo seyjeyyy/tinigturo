@@ -30,6 +30,16 @@ export async function signUp(input: { email: string; password: string; displayNa
   return { needsConfirmation: !data.session };
 }
 
+/** Sends a fresh sign-up confirmation email (the previous link stops working). */
+export async function resendConfirmation(email: string) {
+  const { error } = await requireSupabase().auth.resend({
+    type: 'signup',
+    email,
+    options: { emailRedirectTo: `${window.location.origin}/account` },
+  });
+  if (error) throw error;
+}
+
 export async function signIn(email: string, password: string) {
   const { error } = await requireSupabase().auth.signInWithPassword({ email, password });
   if (error) throw error;

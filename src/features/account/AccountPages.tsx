@@ -3,7 +3,9 @@ import { Link, useNavigate } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { GraduationCap, KeyRound, LogIn, LogOut, School, UserPlus } from 'lucide-react';
 import { useApp } from '../../app/AppContext';
-import { requestEnrollment, requestPasswordReset, setAudioConsent, signIn, signOut, signUp, updatePassword, type AccountType } from '../../backend/accountApi';
+import {
+  requestEnrollment, requestPasswordReset, resendConfirmation, setAudioConsent, signIn, signOut, signUp, updatePassword, type AccountType,
+} from '../../backend/accountApi';
 import { deletePartition } from '../../db/localDb';
 import { unsyncedSummary, type UnsyncedSummary } from '../../sync/outbox';
 import { Alert, Card, PageHeader, StatusBadge } from '../../ui/feedback';
@@ -175,11 +177,45 @@ export function SignOutDialog({ open, onClose }: { open: boolean; onClose: () =>
   );
 }
 
+/** Lets someone whose confirmation link failed ask for a new one. */
+function ResendConfirmation({ email }: { email: string }) {
+  const [state, setState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [message, setMessage] = useState<string | null>(null);
+  if (state === 'sent') {
+    return <Alert tone="success">A new confirmation email was sent to {email}. Open the newest email and click its link once. Earlier links no longer work.</Alert>;
+  }
+  return (
+    <div className="space-y-2">
+      <Button
+        variant="secondary"
+        busy={state === 'sending'}
+        disabled={!email.includes('@')}
+        onClick={async () => {
+          setState('sending');
+          try {
+            await resendConfirmation(email.trim());
+            setState('sent');
+          } catch (e) {
+            setState('error');
+            setMessage(/rate|security purposes|seconds/i.test((e as Error).message)
+              ? 'Please wait a minute before asking for another email.'
+              : friendlyAuthError(e));
+          }
+        }}
+      >
+        Send a new confirmation email
+      </Button>
+      {state === 'error' && message ? <Alert tone="error">{message}</Alert> : null}
+    </div>
+  );
+}
+
 export function SignInPage() {
   const { cloud, refreshRoles } = useApp();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [unconfirmed, setUnconfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
   if (cloud.status !== 'configured') return <CloudNotConfigured />;
@@ -187,12 +223,14 @@ export function SignInPage() {
     event.preventDefault();
     setBusy(true);
     setError(null);
+    setUnconfirmed(false);
     try {
       await signIn(email.trim(), password);
       await refreshRoles();
       navigate('/account');
     } catch (e) {
       setError(friendlyAuthError(e));
+      setUnconfirmed(/Email not confirmed/i.test((e as Error)?.message ?? ''));
     } finally {
       setBusy(false);
     }
@@ -205,6 +243,7 @@ export function SignInPage() {
         <TextField label="Email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
         <TextField label="Password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         {error ? <Alert tone="error">{error}</Alert> : null}
+        {unconfirmed ? <ResendConfirmation email={email} /> : null}
         <Button type="submit" size="lg" busy={busy} className="w-full">Sign in</Button>
       </form>
       <p className="mt-4 flex flex-wrap justify-between gap-2">
@@ -229,7 +268,9 @@ export function SignUpPage() {
     setError(null);
     try {
       const { needsConfirmation } = await signUp(form);
-      setDone(needsConfirmation ? 'Check your email and open the link to finish creating your account.' : 'Your account is ready.');
+      setDone(needsConfirmation
+        ? 'Check your email and click the link once to finish creating your account. If you ask for another email, only the newest link works.'
+        : 'Your account is ready.');
     } catch (e) {
       setError(friendlyAuthError(e));
     } finally {

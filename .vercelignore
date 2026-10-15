@@ -1,0 +1,12 @@
+# Never upload local secrets, dependencies, or build/test output to Vercel.
+node_modules
+dist
+dev-dist
+test-results
+playwright-report
+.env
+.env.*
+!.env.example
+*.local
+supabase/.temp
+supabase/.branches
