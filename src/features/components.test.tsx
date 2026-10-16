@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { useEffect, useRef } from 'react';
-import { Passage, type WordVisual } from './reading/Passage';
+import { LONG_PRESS_MS, Passage, type WordVisual } from './reading/Passage';
+import { InstallPage } from './install/InstallPage';
 import { ResultPanel } from './reading/ResultPanel';
 import { tokenizePassage } from '../text/tokenize';
 import { AppProvider, useApp } from '../app/AppContext';
@@ -146,5 +147,62 @@ describe('RequireLearner', () => {
     expect(screen.getByText(/one reader’s own readings/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Choose a reader' })).toHaveAttribute('href', '/learners');
     expect(screen.queryByText('Home page')).not.toBeInTheDocument();
+  });
+});
+
+describe('Passage — Word Coach shortcut', () => {
+  function Harness({ onSelect, onLongPress }: { onSelect: (i: number) => void; onLongPress: (i: number) => void }) {
+    const ref = useRef<HTMLDivElement>(null);
+    const passage = tokenizePassage('The cat sat.', 'en');
+    return (
+      <div ref={ref}>
+        <Passage passage={passage} visuals={[]} focusIndex={null} onWordSelect={onSelect} onWordLongPress={onLongPress} textSize="lg" lineSpacing="relaxed" scrollContainer={ref} label="Story" />
+      </div>
+    );
+  }
+
+  it('touch and hold opens the Word Coach, and the tap that ends the hold is not a second action', () => {
+    vi.useFakeTimers();
+    try {
+      const onSelect = vi.fn();
+      const onLongPress = vi.fn();
+      render(<Harness onSelect={onSelect} onLongPress={onLongPress} />);
+      const word = document.querySelector('[data-w="1"]')!;
+      fireEvent.pointerDown(word, { pointerType: 'touch', clientX: 10, clientY: 10 });
+      act(() => vi.advanceTimersByTime(LONG_PRESS_MS + 10));
+      fireEvent.pointerUp(word, { pointerType: 'touch' });
+      fireEvent.click(word);
+      expect(onLongPress).toHaveBeenCalledWith(1);
+      expect(onSelect).not.toHaveBeenCalled();
+
+      // A quick tap is a tap; moving the finger (scrolling) cancels the hold.
+      fireEvent.pointerDown(word, { pointerType: 'touch', clientX: 10, clientY: 10 });
+      fireEvent.pointerUp(word, { pointerType: 'touch' });
+      fireEvent.click(word);
+      expect(onSelect).toHaveBeenCalledWith(1);
+      // jsdom has no PointerEvent coordinates: mouse events with pointer event names carry them.
+      fireEvent(word, new MouseEvent('pointerdown', { bubbles: true, clientX: 10, clientY: 10 }));
+      fireEvent(word, new MouseEvent('pointermove', { bubbles: true, clientX: 10, clientY: 60 }));
+      act(() => vi.advanceTimersByTime(LONG_PRESS_MS + 10));
+      expect(onLongPress).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('InstallPage', () => {
+  const ua = (value: string) => vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(value);
+
+  it('offers the Android app only on Android', () => {
+    const spy = ua('Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36');
+    const { unmount } = render(<InstallPage />);
+    expect(screen.getByRole('link', { name: 'Download for Android' })).toBeInTheDocument();
+    unmount();
+    spy.mockReturnValue('Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1');
+    render(<InstallPage />);
+    expect(screen.queryByRole('link', { name: 'Download for Android' })).not.toBeInTheDocument();
+    expect(screen.getByText(/Add to Home Screen/)).toBeInTheDocument();
+    spy.mockRestore();
   });
 });

@@ -45,3 +45,27 @@ test('mobile reading screen gives the passage the space and keeps controls compa
   await expect(page.getByText('Practice saved—word assessment unavailable.')).toBeVisible();
   expect(await hasNoHorizontalScroll(page)).toBe(true);
 });
+
+test.describe('small phone (360 × 640)', () => {
+  test.use({ viewport: { width: 360, height: 640 } });
+
+  test('the title stays readable and the passage gets most of the screen while recording', async ({ page }) => {
+    await installApp(page);
+    await addReader(page, 'Ana');
+    await openStory(page, 'The Red Kite');
+    const title = page.getByRole('heading', { level: 1, name: 'The Red Kite' });
+    expect(await title.evaluate((el) => el.scrollWidth <= el.clientWidth + 1 && el.scrollHeight <= el.clientHeight + 1)).toBe(true);
+    await page.getByRole('button', { name: 'Start' }).click();
+    await expect(page.getByText('Recording', { exact: true })).toBeVisible();
+    const passage = await page.locator('#passage').boundingBox();
+    expect(passage!.height).toBeGreaterThan(640 * 0.7);
+    for (const name of ['Pause', 'Finish', 'Word Coach', 'Help']) {
+      const button = page.getByRole('button', { name, exact: true });
+      await expect(button).toBeInViewport();
+      expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    }
+    expect(await hasNoHorizontalScroll(page)).toBe(true);
+    await page.getByRole('button', { name: 'Finish' }).click();
+    await expect(page.getByText('Practice saved—word assessment unavailable.')).toBeVisible();
+  });
+});

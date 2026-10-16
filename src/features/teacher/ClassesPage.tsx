@@ -7,6 +7,7 @@ import { Alert, Card, EmptyState, Loading, PageHeader, StatusBadge } from '../..
 import { Button } from '../../ui/Button';
 import { Dialog } from '../../ui/Dialog';
 import { SelectField, TextField } from '../../ui/fields';
+import { ALL_GRADES, schoolGradeOption } from '../../content/scope';
 
 export function ClassesPage() {
   const classes = useAsync(listClasses, []);
@@ -58,9 +59,9 @@ export function ClassesPage() {
       <Dialog open={open} onClose={() => setOpen(false)} title="New class">
         <form onSubmit={create} className="space-y-4">
           <TextField label="Class name" value={name} onChange={(e) => { setName(e.target.value); setError(null); }} maxLength={80} error={error} />
-          <SelectField label="Grade" value={grade} onChange={(e) => setGrade(e.target.value)}>
+          <SelectField label="School grade" value={grade} onChange={(e) => setGrade(e.target.value)}>
             <option value="">Mixed or not set</option>
-            {[1, 2, 3, 4, 5, 6].map((g) => <option key={g} value={g}>Grade {g}</option>)}
+            {ALL_GRADES.map((g) => <option key={g} value={g}>{schoolGradeOption(g)}</option>)}
           </SelectField>
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setOpen(false)}>Cancel</Button>

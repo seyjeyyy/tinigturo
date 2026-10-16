@@ -24,6 +24,8 @@ export interface RecorderLike {
   resume(): void;
   stop(): Promise<Blob | null>;
   release(): void;
+  /** Latest microphone samples for the live waveform; false when unavailable. */
+  readWaveform?(target: Float32Array<ArrayBuffer>): boolean;
 }
 
 export interface ReadAloudDeps {
@@ -361,6 +363,15 @@ export class ReadAloudController {
     this.lastWordsAt = this.now();
     this.dispatch({ type: 'RESUME', token: this.state.token });
     if (!this.recognitionLost) this.provider?.resume();
+  }
+
+  /**
+   * Fills `target` with what the microphone hears right now, for the live waveform.
+   * Only while recording; it is display only and never used for assessment.
+   */
+  readWaveform(target: Float32Array<ArrayBuffer>): boolean {
+    if (this.state.status !== 'recording' || this.disposed) return false;
+    return this.recorder?.readWaveform?.(target) ?? false;
   }
 
   /** "Continue from here": moves the reading position. Skipped words are not marked correct. */

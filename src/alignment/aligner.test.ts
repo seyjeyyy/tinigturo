@@ -342,3 +342,20 @@ describe('StreamingAligner — segments a recognizer never finalizes', () => {
     expect(replayed).toEqual(aligner.finish());
   });
 });
+
+describe('StreamingAligner — recognizers that repeat earlier text', () => {
+  // Some mobile recognizers are reported to resend everything heard so far in each new
+  // result. This fixture checks the outcome stays correct; it is not device evidence.
+  it('cumulative final results neither re-count words nor skip ahead', () => {
+    const text = 'Ben and his sister Mia made a red kite. They used paper, sticks, and a long string.';
+    const clean = run(text, [['a', text.toLowerCase().replace(/[.,]/g, ''), true]]).result;
+    const words = text.toLowerCase().replace(/[.,]/g, '').split(' ');
+    const cumulative: Step[] = [];
+    for (let end = 4; end <= words.length; end += 4) cumulative.push([`r${end}`, words.slice(0, Math.min(end, words.length)).join(' '), true]);
+    if (words.length % 4) cumulative.push(['rlast', words.join(' '), true]);
+    const repeated = run(text, cumulative).result;
+    expect(repeated.statuses).toEqual(clean.statuses);
+    expect(repeated.statuses.every((s) => s === 'correct')).toBe(true);
+    expect(repeated.reachedEnd).toBe(true);
+  });
+});

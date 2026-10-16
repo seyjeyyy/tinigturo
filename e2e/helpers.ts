@@ -49,7 +49,8 @@ export async function switchReader(page: Page, name: string): Promise<void> {
 }
 
 export async function openStory(page: Page, title: string, mode: 'Read aloud' | 'Listen' = 'Read aloud'): Promise<void> {
-  await page.goto('/stories');
+  // All stories, including extra practice outside the Grade 2–4 English path.
+  await page.goto('/stories?view=all');
   const card = page.getByRole('listitem').filter({ has: page.getByRole('heading', { name: title }) });
   await card.getByRole('link', { name: mode }).click();
   await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();

@@ -168,7 +168,7 @@ function AssignmentsTab({ classId }: { classId: string }) {
         <form onSubmit={assign} className="grid gap-3 md:grid-cols-3">
           <SelectField label="Story" value={storyId} onChange={(e) => setStoryId(e.target.value)}>
             <option value="">Choose a published story</option>
-            {stories.data?.map((s) => <option key={s.id} value={s.id}>{s.draft_title} (Grade {s.grade_level})</option>)}
+            {stories.data?.map((s) => <option key={s.id} value={s.id}>{s.draft_title} (Grade {s.grade_level} reading level)</option>)}
           </SelectField>
           <TextField label="Due (optional)" type="date" value={due} onChange={(e) => setDue(e.target.value)} />
           <TextField label="Note for learners (optional)" value={instructions} onChange={(e) => setInstructions(e.target.value)} maxLength={300} />

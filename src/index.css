@@ -148,6 +148,22 @@ body {
   box-shadow: 0 0 0 3px var(--color-sun);
 }
 
+/* Picking a word for the Word Coach: every word shows that it can be tapped. Outlines
+   do not change the layout, so lines never move. */
+.passage--picking .word {
+  outline: 1.5px dashed #b88a0c;
+  outline-offset: 1px;
+}
+
+/* On touch screens, holding a word opens the Word Coach instead of selecting text. */
+@media (pointer: coarse) {
+  .passage--hold .word {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}
+
 .level-meter {
   transition: width 150ms linear;
 }

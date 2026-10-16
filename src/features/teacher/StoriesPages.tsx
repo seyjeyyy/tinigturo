@@ -18,6 +18,7 @@ import { Button, ButtonLink } from '../../ui/Button';
 import { Dialog } from '../../ui/Dialog';
 import { SelectField, TextArea, TextField } from '../../ui/fields';
 import { Passage } from '../reading/Passage';
+import { ALL_GRADES, readingLevelLabel } from '../../content/scope';
 
 const STATUS_BADGE: Record<TeacherStoryRow['status'], { tone: 'neutral' | 'teal' | 'sun'; icon: string; text: string }> = {
   draft: { tone: 'neutral', icon: '✎', text: 'Draft' },
@@ -43,7 +44,7 @@ export function TeacherStoriesPage() {
               <li key={s.id} className="flex flex-wrap items-center gap-2 p-3">
                 <Link to={`/teacher/stories/${s.id}`} className="font-semibold underline">{s.draft_title}</Link>
                 <StatusBadge tone={badge.tone} icon={badge.icon}>{badge.text}</StatusBadge>
-                <span className="text-sm text-ink-soft">Grade {s.grade_level} · {LANGUAGES[s.language].label} · edited {formatDateTime(s.updated_at)}</span>
+                <span className="text-sm text-ink-soft">{readingLevelLabel(s.grade_level)} · {LANGUAGES[s.language].label} · edited {formatDateTime(s.updated_at)}</span>
               </li>
             );
           })}
@@ -229,8 +230,8 @@ export function StoryEditorPage() {
           <SelectField label="Language" value={fields.language} onChange={(e) => update({ language: e.target.value as LanguageCode })}>
             {Object.values(LANGUAGES).map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
           </SelectField>
-          <SelectField label="Grade" value={String(fields.grade_level)} onChange={(e) => update({ grade_level: Number(e.target.value) })}>
-            {[1, 2, 3, 4, 5, 6].map((g) => <option key={g} value={g}>Grade {g}</option>)}
+          <SelectField label="Reading level" value={String(fields.grade_level)} onChange={(e) => update({ grade_level: Number(e.target.value) })} hint="The grade this story is written for. Grades 2–4 in English form the learning path; other levels are extra practice.">
+            {ALL_GRADES.map((g) => <option key={g} value={g}>{readingLevelLabel(g)}</option>)}
           </SelectField>
           <TextField label="Topic" value={fields.topic} onChange={(e) => update({ topic: e.target.value })} maxLength={40} />
         </div>

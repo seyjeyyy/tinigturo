@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, type CSSProperties } from 'react';
+import { memo, useCallback, useEffect, useRef, type CSSProperties } from 'react';
 import type { Passage as PassageModel } from '../../text/tokenize';
 import type { LineSpacing, TextSize } from '../../domain/types';
 
@@ -23,8 +23,12 @@ interface PassageProps {
   selectedIndex?: number | null;
   /** Word to keep in view (current / next / narrated). */
   focusIndex: number | null;
-  /** Opens the Word Coach for a word (click, or Enter on the keyboard cursor). */
+  /** A word was tapped/clicked, or Enter was pressed on the keyboard cursor. */
   onWordSelect: (index: number) => void;
+  /** Optional shortcut: a word was touched and held. The following click is ignored. */
+  onWordLongPress?: (index: number) => void;
+  /** Words are being picked (e.g. for the Word Coach): show them as tappable. */
+  picking?: boolean;
   /** Moves the keyboard word cursor. */
   onCursorChange?: (index: number) => void;
   textSize: TextSize;
@@ -74,9 +78,47 @@ const Word = memo(function Word({ index, text, visuals, selected, onSelect }: {
  * punctuation and spelling. Each word is clickable for the Word Coach; keyboard users
  * reach the same actions through the word list in the Word Coach and the toolbar.
  */
+export const LONG_PRESS_MS = 550;
+
 export function Passage({
-  passage, visuals, narratingSentence, selectedIndex, focusIndex, onWordSelect, onCursorChange, textSize, lineSpacing, scrollContainer, label,
+  passage, visuals, narratingSentence, selectedIndex, focusIndex, onWordSelect, onWordLongPress, picking = false, onCursorChange, textSize, lineSpacing, scrollContainer, label,
 }: PassageProps) {
+  // Stable callbacks keep the memoized words from re-rendering on every parent render.
+  const latest = useRef({ onWordSelect, onWordLongPress });
+  latest.current = { onWordSelect, onWordLongPress };
+  const press = useRef<{ timer: ReturnType<typeof setTimeout> | null; x: number; y: number; fired: boolean }>({ timer: null, x: 0, y: 0, fired: false });
+  const cancelPress = () => {
+    if (press.current.timer) clearTimeout(press.current.timer);
+    press.current.timer = null;
+  };
+  useEffect(() => cancelPress, []);
+  const select = useCallback((index: number) => {
+    if (press.current.fired) {
+      press.current.fired = false; // the click that ends a long press
+      return;
+    }
+    latest.current.onWordSelect(index);
+  }, []);
+  const wordAt = (target: EventTarget | null) => (target instanceof Element ? target.closest<HTMLElement>('[data-w]') : null);
+  const onPointerDown = (event: React.PointerEvent) => {
+    const word = wordAt(event.target);
+    if (!word || !latest.current.onWordLongPress || (event.pointerType === 'mouse' && event.button !== 0)) return;
+    cancelPress();
+    const index = Number(word.dataset.w);
+    press.current = {
+      x: event.clientX, y: event.clientY, fired: false,
+      timer: setTimeout(() => {
+        press.current.timer = null;
+        press.current.fired = true;
+        latest.current.onWordLongPress?.(index);
+      }, LONG_PRESS_MS),
+    };
+  };
+  const onPointerMove = (event: React.PointerEvent) => {
+    // Moving the finger means scrolling, not holding a word.
+    if (press.current.timer && (Math.abs(event.clientX - press.current.x) > 10 || Math.abs(event.clientY - press.current.y) > 10)) cancelPress();
+  };
+
   const onKeyDown = (event: React.KeyboardEvent) => {
     const last = passage.words.length - 1;
     const current = selectedIndex ?? focusIndex ?? 0;
@@ -88,7 +130,7 @@ export function Passage({
     else if (event.key === 'ArrowUp') next = Math.max(0, sentence ? (passage.sentences[sentence.index - 1]?.wordStart ?? 0) : current - 1);
     else if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
-      onWordSelect(current);
+      latest.current.onWordSelect(current);
       return;
     }
     if (next !== null) {
@@ -141,8 +183,17 @@ export function Passage({
 
   return (
     <article
-      className="passage"
+      className={`passage${picking ? ' passage--picking' : ''}${onWordLongPress ? ' passage--hold' : ''}`}
       style={style}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={cancelPress}
+      onPointerCancel={cancelPress}
+      onPointerLeave={cancelPress}
+      onContextMenu={(event) => {
+        // Holding a word is the Word Coach shortcut, not a text menu.
+        if (onWordLongPress && wordAt(event.target)) event.preventDefault();
+      }}
       aria-label={label}
       aria-describedby="passage-keyboard-help"
       lang={passage.language === 'fil' ? 'fil' : 'en'}
@@ -163,7 +214,7 @@ export function Passage({
                     text={word.leading + word.core + word.trailing}
                     visuals={visuals[word.index] ?? null}
                     selected={selectedIndex === word.index}
-                    onSelect={onWordSelect}
+                    onSelect={select}
                   />
                   {word.spaceAfter ? ' ' : ''}
                 </span>

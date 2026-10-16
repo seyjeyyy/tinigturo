@@ -10,6 +10,7 @@ import { Alert, EmptyState, PageHeader } from '../../ui/feedback';
 import { Dialog } from '../../ui/Dialog';
 import { SelectField, TextField } from '../../ui/fields';
 import { StorageFullError } from '../../db/errors';
+import { ALL_GRADES, LEARNING_PATH, schoolGradeOption } from '../../content/scope';
 
 export function AvatarChooser({ value, onChange }: { value: AvatarId; onChange: (id: AvatarId) => void }) {
   return (
@@ -57,9 +58,10 @@ export function CreateLearnerDialog({ open, onClose, onCreated }: { open: boolea
       <form onSubmit={submit} className="space-y-4" noValidate>
         <TextField label="First name or nickname" value={name} onChange={(e) => { setName(e.target.value); setError(null); }} error={error} maxLength={40} autoComplete="off" hint="Use a first name or nickname only." />
         <AvatarChooser value={avatar} onChange={setAvatar} />
-        <SelectField label="Grade (optional)" value={grade} onChange={(e) => setGrade(e.target.value)}>
+        <SelectField label="School grade (optional)" value={grade} onChange={(e) => setGrade(e.target.value)} hint="Tinig Turo’s learning path is for Grades 2–4. Other grades can still use it.">
           <option value="">Not set</option>
-          {[1, 2, 3, 4, 5, 6].map((g) => <option key={g} value={g}>Grade {g}</option>)}
+          {LEARNING_PATH.grades.map((g) => <option key={g} value={g}>{schoolGradeOption(g)}</option>)}
+          {ALL_GRADES.filter((g) => !(LEARNING_PATH.grades as readonly number[]).includes(g)).map((g) => <option key={g} value={g}>{schoolGradeOption(g)}</option>)}
         </SelectField>
         <p className="text-sm text-ink-soft">
           {partition === 'device'

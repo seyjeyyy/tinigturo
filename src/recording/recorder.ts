@@ -36,6 +36,7 @@ export class AudioRecorder {
   private stream: MediaStream | null = null;
   private recorder: MediaRecorder | null = null;
   private context: AudioContext | null = null;
+  private analyser: AnalyserNode | null = null;
   private levelTimer: ReturnType<typeof setInterval> | null = null;
   private seq = 0;
   private stopResolvers: ((blob: Blob | null) => void)[] = [];
@@ -101,6 +102,7 @@ export class AudioRecorder {
       const analyser = this.context.createAnalyser();
       analyser.fftSize = 1024;
       source.connect(analyser);
+      this.analyser = analyser;
       const data = new Float32Array(analyser.fftSize);
       this.levelTimer = setInterval(() => {
         analyser.getFloatTimeDomainData(data);
@@ -111,6 +113,16 @@ export class AudioRecorder {
     } catch {
       // Level metering is optional; recording continues without it.
     }
+  }
+
+  /**
+   * Copies the latest microphone samples (-1..1) into `target` for the live waveform.
+   * Returns false when the browser offers no audio analysis.
+   */
+  readWaveform(target: Float32Array<ArrayBuffer>): boolean {
+    if (!this.analyser) return false;
+    this.analyser.getFloatTimeDomainData(target);
+    return true;
   }
 
   pause(): void {
@@ -178,6 +190,7 @@ export class AudioRecorder {
     this.stream = null;
     void this.context?.close().catch(() => undefined);
     this.context = null;
+    this.analyser = null;
     for (const resolve of this.stopResolvers) resolve(null);
     this.stopResolvers = [];
   }
