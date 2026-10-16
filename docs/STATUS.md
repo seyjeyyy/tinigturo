@@ -1,78 +1,90 @@
 # Project status, audit and plan
 
-Last updated 2026-10-15 on branch `enhance/stage-1-reliability`. This file records what
-was checked and how, so claims elsewhere in the docs can be traced. "Verified" below
-means verified by the named automated tests in emulated browsers. **Nothing has been
-verified on a physical phone or tablet, or against a staging Supabase project.**
+Last updated 2026-10-16. Work is on branches `enhance/stage-1-reliability` (stages 1–2)
+and `enhance/stage-3-reading-ux` (stages 3–6, built on top). This file records what was
+checked and how, so claims elsewhere in the docs can be traced.
+
+"Verified" means verified by the named automated tests in emulated browsers or PGlite.
+**Nothing has been verified on a physical phone or tablet, or against a staging Supabase
+project.** Test results are in `docs/TESTING.md`.
 
 ## What is deployed
 
 | Item | Finding |
 |---|---|
-| Repository | `github.com/seyjeyyy/tinigturo` (`seyjeyyy` remote; `main` = `06cdf4c`). The `origin` remote (`Sheshseyjey/tinigturo`) is one commit behind. |
-| Production web app | `https://tinigturo-green.vercel.app`, deployed with the Vercel CLI from an **uncommitted working tree**: it serves the Android download page, which was in no commit. That working tree is now commit `247d76e` on this branch. |
-| Deployment URL given for review | `tinigturo-k3687rmyv-…vercel.app` is behind Vercel Authentication (login page). Not accessed. |
-| Supabase | The production app and `.env.local` use the same hosted project. Its migrations are applied (RPCs exist; anonymous calls are refused). It is the production backend, so no test data was written to it. |
-| Android | A Trusted Web Activity APK (`com.tinigturo.app` 1.0.0) is served at `/download/tinigturo.apk`. It is a shell around the website, not a separate app build. See `docs/ANDROID.md`. |
+| Repository | `github.com/seyjeyyy/tinigturo`. `main` = `06cdf4c`. The `origin` remote (`Sheshseyjey/tinigturo`) is one commit behind. |
+| Production web app | `https://tinigturo-green.vercel.app`, deployed with the Vercel CLI from an **uncommitted working tree**: it served the Android download page, which was in no commit. That tree is now commit `247d76e`. **This work has not been deployed to production.** |
+| Review deployments | Vercel **preview** deployments of the branches, behind Vercel Authentication. |
+| Supabase | The production app and `.env.local` use the same hosted project. Migrations up to `20261015000400` are applied (checked read-only). **`20261016000100_teacher_tools.sql` is not applied.** No test data was written to production. |
+| Android | A Trusted Web Activity APK (`com.tinigturo.app` 1.0.0) served at `/download/tinigturo.apk`. It is a shell around the website. See `docs/ANDROID.md`. |
 
 ## Requirement status
 
-Classification: **Verified** (working and covered by tests here), **Unverified**
-(implemented, not tested here), **Defective**, **Incomplete**, **Missing**. "Fixed"
-means it was defective and is fixed on this branch with tests.
+Classification:
+- **Verified**: working and covered by tests here.
+- **Unverified**: implemented, but not tested here.
+- **Fixed**: was defective; fixed with tests.
+- **Done**: was missing or incomplete; implemented with tests.
+- **Incomplete**, **Missing**: as written.
 
 | Area | Status | Notes |
 |---|---|---|
-| Mobile PWA shell: bottom nav, safe areas, touch targets, no sideways scroll | Verified (Pixel 7 emulation) | `e2e/mobile.spec.ts`. Real devices unverified. |
+| Mobile PWA shell: bottom nav, safe areas, touch targets, no sideways scroll | Verified (emulation) | Pixel 7 and 360×640 viewports. Real devices unverified. |
+| Reading screen layout on phones | **Fixed** | At 360×640 the passage gets 482 px while recording (was 384 px), and the title is readable (was cut to "The …"). |
 | Service-worker update never interrupts a recording | Verified | `e2e/update.spec.ts`. |
-| Installation guidance and Android APK | Unverified | APK built and signed; never installed on a phone here. |
-| Grade 2–4 English scope | **Incomplete** | Only 2 of 6 starter stories are in scope (English Grade 2 and 3). Filters and learner grades offer Grades 1–6. Planned for stage 3 (nothing deleted). |
+| Installation guidance by device | **Done** | APK offered only on Android. The APK was never installed on a phone here. |
+| Grades 2–4 English scope | **Done** | Default learning path, out-of-path content kept and labelled (`docs/SCOPE.md`). Content gap: 2 in-path bundled stories, no Grade 4. |
 | Learner pages without a selected reader | **Fixed** | Explain and return, instead of silently redirecting. |
-| Reading screen: passage space, Pause/Continue/Finish/Help | Verified (emulation) | Controls could be more compact on small phones (stage 3). |
-| Word Coach discoverability | **Incomplete** | Only by tapping a word; no explicit button or long-press (stage 3). |
-| Listen and Follow, narration highlighting | Verified (no-voice path); Unverified with voices | Word timing from speech-synthesis boundaries or recorded timings; sentence fallback is labelled. |
-| Aligner: partial revisions, repeats, skips, substitutions, self-corrections, manual repositioning | Verified with transcript fixtures | Real children's speech unverified. |
-| Final recognizer text after Pause/Finish | **Fixed** | It was dropped and left later words "tentative". |
-| Recording lifecycle: one session, double taps, stale callbacks | Verified | |
-| Leaving during the permission prompt | **Fixed** | The microphone stayed on and an orphaned attempt was saved. |
-| Blocked-microphone recovery | **Fixed** | No repeated prompts; device-specific steps. |
-| Recording vs recognition failure | **Fixed** | A recorder failure now says why; a recognizer failure is never blamed on the reader. |
-| Assessment measures and honesty | Verified | CSV no longer exports unassessed attempts as zeros (fixed). Later on-device assessment of saved recordings: Missing. |
+| Word Coach discoverability | **Done** | Explicit button that pauses the reading; touch-and-hold shortcut; taps during recording no longer open a dialog. |
+| Listen and Follow, narration highlighting | Verified (no-voice path) | Recorded narration highlights only with supplied timings; otherwise no highlighting, labelled. |
+| Aligner: partial revisions, repeats, skips, substitutions, self-corrections, manual repositioning, recognizers that resend earlier text | Verified with transcript fixtures | Real children's speech unverified. |
+| Recognizer's final text after Pause/Finish | **Fixed** | |
+| Recording lifecycle and permission prompt | **Fixed** | Microphone no longer left on after leaving the screen; no orphaned attempts; blocked microphone not re-requested. |
+| Recording vs recognition failure | **Fixed** | |
+| Live waveform | **Done** | Drawn from the real microphone signal; display only; still bar with reduced motion. |
+| Pitch/rhythm feedback | Not implemented | Not claimed anywhere. If required: experimental, outside grading, validated against reviewed recordings first. |
+| Assessment measures and honesty | Verified | No zero scores for unassessed attempts in the CSV or the gradebook. Later on-device assessment of saved recordings: **Missing**. |
 | Classes, enrollment, assignments, review queue, corrections, CSV | Verified in PGlite | Hosted unverified. |
-| Gradebook: rubrics, draft/published grades, audited revisions | **Missing** | Stage 5. |
-| Device-only reader → account linking | **Missing** | Still a documented limitation. Stage 4. |
-| Vocabulary editor, review states, sync to devices | **Missing** | Draft/reviewed flag only; bundled list only. Stage 5. |
-| Narration upload, preview, offline download | **Missing** | Player and data model exist. Stage 5. |
-| Waveform from microphone input | **Missing** | Only a small level bar. Stage 3. |
-| Pitch/rhythm feedback | Not implemented | Not claimed anywhere. Only if required, as experimental and outside grading. |
+| Gradebook: rubrics, draft/published grades, audited revisions, CSV | **Done** | Verified in PGlite (`supabase/tests/teacherTools.test.ts`). The UI has no automated test against a backend; it needs the staging check. |
+| Device-only reader → account linking | **Done** | `src/data/linking.test.ts`; the hosted `create_learner` path needs the staging check. |
+| Vocabulary editor, review states, device sync | **Done** | SQL in PGlite, device download in unit tests. Starter definitions are still unreviewed drafts. |
+| Narration upload, preview, offline download | **Done** | SQL in PGlite, file and timing checks in unit tests. Upload against hosted Storage unverified. |
 | Offline speech engines | Unverified | Vosk disabled by default; nothing benchmarked on devices. Filipino assessment off. |
-| Offline storage and sync: atomic writes, op IDs, retries, auth expiry, conflicts | Verified (unit + PGlite) | Background sync only wakes an open app. |
-| RLS, storage policies, no self-promotion, private audio | Verified in PGlite | Hosted unverified. |
+| Offline storage and sync | Verified (unit + PGlite) | Background sync only wakes an open app. |
+| RLS, storage policies, no self-promotion, private audio | Verified in PGlite | New tables locked down explicitly. Hosted unverified. |
+| Accessibility (automated rules) | Verified | axe-core finds no serious or critical WCAG 2.1 A/AA violations on 12 student screens. A screen-reader pass is still needed. |
 
-## Plan
+## Stages
 
-1. **Baseline**: deployed source identified, tests run, branch created. *Done.*
-2. **Recording, navigation and assessment defects**: the fixes listed above. *Done
-   on this branch* (see `docs/TESTING.md` for the tests).
-3. **Mobile reading and word tracking**: compact reading controls; an explicit Word
-   Coach button with long-press as a shortcut; a waveform drawn from the real
-   microphone signal (not a score); Grade 2–4 English as the default path, with
-   Grade 1, 5, 6 and Filipino content kept and labelled as outside it.
-4. **Device-only reader linking**: a confirmed, resumable, server-authorized import of
-   device-only readers into an account, with an explicit ID mapping. Needs an additive
-   migration.
-5. **Teacher tools**: versioned rubrics, draft/published grades with audited revisions,
-   kept separate from rewards; vocabulary editor with draft/reviewed/published states
-   and device sync; narration upload linked to exact story versions.
-6. **Release readiness**: speech-engine benchmarks on target phones, accessibility pass,
-   staging Supabase verification, release docs.
+1. **Baseline.** Deployed source identified, tests run, branch created. *Done.*
+2. **Recording, navigation and assessment defects.** *Done.*
+3. **Mobile reading and word tracking.** Compact controls, Word Coach button and
+   shortcut, live waveform, Grade 2–4 path, device-aware install page. *Done.*
+4. **Device-only reader linking.** *Done* (no migration needed).
+5. **Teacher tools.** Gradebook, vocabulary workflow, narration upload. *Done* (migration
+   `20261016000100_teacher_tools.sql`).
+6. **Release readiness.** Automated accessibility checks, package check, release and
+   scope docs. *Done in code.* Device benchmarks and the staging Supabase checks remain
+   (below).
+
+## Still needs verification (blocked here)
+
+- **Staging Supabase.** Create a separate project and run every hosted check in
+  `docs/TESTING.md`: email flows, enrollment, sync, linking, audio and narration
+  uploads, signed-URL expiry, grades visibility across classes, retention. Blocked: the
+  only project available is production.
+- **Physical devices.** The manual checklist in `docs/TESTING.md` on a low-cost
+  Android phone, an iPad and a Chromebook, including the APK install and microphone
+  permission recovery.
+- **Speech engines.** Benchmarks in `docs/SPEECH.md` on target phones, and accuracy
+  against teacher-reviewed transcripts.
+- **Content.** Educator review of the starter vocabulary and Filipino content. More
+  Grade 2–4 English stories, especially Grade 4.
 
 ## Rollback
 
-Stage 2 changes no database schema, migration, IndexedDB schema or sync payload shape.
-New attempts carry `scoring_version = 'score-1.1.0'`, which the server stores as text.
-To roll back, redeploy the previous build; attempts saved by this version stay valid
-and readable by the old one.
-
-Later stages that add migrations will each list their own rollback steps here before
-they are deployed.
+`docs/RELEASE.md` has the steps. In short:
+- **Stages 2–4** change no database schema, IndexedDB schema or sync payload shape.
+  Redeploying the previous web build is enough.
+- **Stage 5's migration** only adds objects. The older web app ignores them. A full
+  database rollback script, with data export first, is in `docs/RELEASE.md`.

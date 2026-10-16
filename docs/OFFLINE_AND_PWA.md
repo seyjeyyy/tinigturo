@@ -9,8 +9,13 @@ microphone and installation to work.
 - **iPhone/iPad (Safari):** Share → *Add to Home Screen*.
 - **Windows / ChromeOS (Chrome or Edge):** the install icon in the address bar.
 
-The in-app page `/install` shows the same steps and an install button when the
-browser offers one.
+The in-app page `/install` shows the steps for the device in use:
+- The Android app download (a Trusted Web Activity, `docs/ANDROID.md`) is offered
+  only on Android.
+- iPhone and iPad get the Safari "Add to Home Screen" steps.
+- Computers get the browser's install option.
+- When the browser offers an install prompt, the page shows an install button instead.
+- Steps for other kinds of device are under "Installing on another kind of device".
 
 ## Before going offline
 
@@ -22,6 +27,10 @@ browser offers one.
    - If "Download language pack" appears for English, tap it to enable on-device word
      checking in that browser.
    - If the experimental engine is enabled, download the speech model (about 40 MB).
+   - When signed in, tap **Download reviewed word meanings**. This also happens
+     automatically when the account refreshes online.
+   - For stories with a teacher's recorded narration, open the story in Listen mode
+     and tap **Download recording**.
    - Tap **Ask the browser to keep this data**.
 4. Check that **Sync** shows nothing waiting before leaving the network.
 
@@ -33,7 +42,10 @@ browser offers one.
   installed on the device.
 - Recording.
 - Word checking, only with an on-device engine.
-- Word Coach and My Words with downloaded vocabulary.
+- Word Coach and My Words with downloaded vocabulary (bundled drafts and published
+  meanings).
+- Listen mode with a downloaded narration recording (highlighting only if the
+  recording came with word timings), or with the device's computer voice.
 - Progress and rewards (rewards show "waiting to be checked").
 - Recovering an interrupted reading.
 

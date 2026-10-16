@@ -1,6 +1,7 @@
 # Tinig Turo
 
-A reading fluency and vocabulary app for elementary learners. As a child reads aloud,
+An English reading fluency and vocabulary app for elementary learners in Grades 2–4
+(see [docs/SCOPE.md](docs/SCOPE.md)). As a child reads aloud,
 the app follows their voice and highlights the matching words in the passage
 ("videoke-style" reading). It works offline after installation and syncs to Supabase
 when online.
@@ -37,46 +38,61 @@ deploy the retention function.
 
 **Learners** (simple navigation: Home, Stories, My Words, Progress):
 - **Readers.** Choose an avatar and reader profile. Several readers can share one
-  device without mixing their data.
-- **Stories.** Browse by grade, language, topic and whether a story is on the device.
-  Download stories for offline use.
-- **Read aloud.** The passage takes most of the screen. Controls along the bottom:
-  Start, Pause, Continue, Finish, Help.
+  device without mixing their data. Pages that need a reader explain why and come back
+  after one is chosen.
+- **Stories.** The list opens on the **Grades 2–4 English** learning path. All stories
+  stay available, with out-of-path ones (Grade 1, 5, 6, Filipino) labelled as extra
+  practice. Teacher assignments always show. Download stories for offline use.
+- **Read aloud.** The passage takes most of the screen, including on small phones.
+  Compact controls: Start, Pause, Continue, Finish, Word Coach, Help.
   - Words are marked as next (underline), just heard (blue outline), matched (subtle
     bar) or worth checking (wavy).
-  - "Continue from here" recovers a lost place, auto-scroll respects manual scrolling,
-    and text size and spacing are adjustable.
-- **Listen and follow.** Narration with highlighting from real word timings or
-  speech-synthesis boundaries. Falls back to clearly labelled sentence highlighting.
-  Pause, replay and speed controls.
-- **Word Coach.**
-  - A child-friendly definition, shown as a draft until reviewed.
-  - The word spoken by the computer voice, when one is available.
-  - Syllables only once a teacher has verified them.
-  - An example sentence, save to My Words, and later flashcard practice.
-- **Progress and rewards.** Separate measures for each attempt. Participation and
-  performance badges, with no rankings.
-- **Continuing and recovering.** Continue where you stopped; recover a reading
-  interrupted by a crash or navigation.
+  - A live waveform shows that the microphone hears the reader. It is not a score.
+  - Auto-scroll respects manual scrolling; text size and spacing are adjustable.
+  - A blocked microphone gets device-specific steps, without repeated prompts.
+- **Word Coach.** Press **Word Coach**, then tap a word, or touch and hold a word. The
+  reading pauses while it is open and continues after. It shows:
+  - a child-friendly definition (a draft until a reviewer publishes it);
+  - the word spoken by the computer voice;
+  - syllables, only when verified by a content editor;
+  - "Continue reading from here" to recover a lost place;
+  - a button to save the word to My Words.
+- **Listen and follow.** A teacher's recorded narration (highlighting only from word
+  timings supplied with it) or the computer voice (word or sentence highlighting).
+- **Progress.** Separate measures for each attempt, never zeros for unchecked readings.
+  Published teacher grades with feedback. Participation and performance badges, with no
+  rankings, kept separate from grades.
+
+**Families and accounts:**
+- Readers saved only on a device can be **added to an account**, deliberately: the
+  adult confirms which readers and which account. IDs are kept, and an interrupted move
+  resumes safely.
 
 **Teachers** (a separate, PIN-lockable workspace):
-- Classes and enrollment:
-  - Create classes. A class code lets parents *request* enrollment; the teacher
-    approves each request.
-  - Add roster learners for a trusted classroom device.
-- Stories: create, edit (with conflict detection), preview, publish as immutable
-  versions, archive and restore.
-- Assignments: assign stories to classes.
-- Progress and review:
-  - Progress tables and CSV exports.
-  - A review queue for uncertain or unassessed attempts.
-  - Recording playback through short-lived signed URLs.
-  - Word-level corrections with an audit trail, and feedback to learners.
+- Classes, enrollment by request and approval, and roster learners for shared devices.
+- Stories: create, edit with conflict detection, publish immutable versions, and add
+  **recorded narration** (with optional verified word timings) to a published version.
+- Assignments, progress tables and CSV exports.
+- Review: a queue of uncertain or unassessed attempts, recording playback through
+  short-lived signed URLs, and word-level corrections with an audit trail.
+- **Grades:**
+  - Rubrics written by the school, versioned and immutable.
+  - Draft and published grades per attempt; families see only published ones.
+  - Changing a published grade needs a reason, and every change is kept.
+  - A class gradebook with CSV export.
+- **Word meanings:** teachers write drafts; content editors review, verify syllables
+  and publish. Devices download published meanings for offline use.
 
 ## Documentation
 
 - [docs/STATUS.md](docs/STATUS.md): what is deployed, the audit of every requirement
-  (verified, unverified, fixed, incomplete, missing), the staged plan and rollback.
+  (verified, unverified, fixed, done, missing), the stages, and what still needs
+  verification.
+- [docs/SCOPE.md](docs/SCOPE.md): Grades 2–4 English scope, how other content is
+  categorised, SDG 4 alignment, and what is kept apart (grade, level, performance,
+  rewards).
+- [docs/RELEASE.md](docs/RELEASE.md): release order (database first), staging,
+  production steps, rollback.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): modules, offline-first data flow,
   outbox and sync, recording lifecycle, caching.
 - [docs/SCORING.md](docs/SCORING.md): alignment and scoring rules, measures, rewards.
@@ -89,21 +105,22 @@ deploy the retention function.
   new versions, Google Play.
 - [docs/OFFLINE_AND_PWA.md](docs/OFFLINE_AND_PWA.md): installing, offline downloads,
   storage, updates.
-- [docs/CONTENT.md](docs/CONTENT.md): starter stories and the vocabulary review process.
+- [docs/CONTENT.md](docs/CONTENT.md): starter stories, the vocabulary review workflow,
+  and recorded narration.
 - [docs/TESTING.md](docs/TESTING.md): commands, results, the requirement-to-test map,
   and the manual device checklist.
 
 ## Tests
 
-Results from the latest run on this branch (2026-10-15). Details, and what these
-tests cannot show, are in [docs/TESTING.md](docs/TESTING.md).
+Results from the latest run (2026-10-16, branch `enhance/stage-3-reading-ux`). Details,
+and what these tests cannot show, are in [docs/TESTING.md](docs/TESTING.md).
 
 | Command | Result |
 |---|---|
 | `npm run typecheck` | no errors |
-| `npm test` | 180 passed (145 unit/component + 35 database tests against the real migrations in PGlite) |
+| `npm test` | 209 passed (165 unit/component + 44 database tests against the real migrations in PGlite) |
 | `npm run build` | passes |
-| `npm run test:e2e` | 15 passed (headless Chromium: desktop, and Pixel 7 emulation) |
+| `npm run test:e2e` | 19 passed (headless Chromium: desktop, Pixel 7 and 360×640 emulation, axe-core accessibility rules) |
 
 None of these run on a physical device or against a hosted Supabase project.
 
@@ -125,20 +142,23 @@ None of these run on a physical device or against a hosted Supabase project.
   read-only), but it is the production backend, so sign-up emails, enrollment, Storage
   uploads, signed URLs and the retention function still need a check on a separate
   staging project.
+- **The teacher-tools migration is not applied to production.**
+  `20261016000100_teacher_tools.sql` must be applied before a web app using grades,
+  word meanings or narration goes live ([docs/RELEASE.md](docs/RELEASE.md)).
 - **Unassessed recordings cannot be assessed later on the device.** Live voice
   following works, but saved recordings can't be transcribed afterwards. The offered
-  path is teacher review: the learner's side can request a review, and teachers listen
-  when recording sharing is allowed.
-- **Vocabulary.**
-  - Starter definitions are drafts that need educator review.
-  - No syllables are shipped.
-  - The app does not yet download reviewed vocabulary from the server.
-  - There is no in-app vocabulary editor; use SQL (see
-    [docs/CONTENT.md](docs/CONTENT.md)).
-- **Recorded narration** with word timings is supported by the player and data model,
-  but there is no upload tool yet. Starter stories use speech synthesis, which needs a
-  voice on the device (rare for Filipino).
-- **Device-only readers** can't yet be moved into an account; they stay on the device.
+  path is teacher review and grading. Teachers can listen when recording sharing is
+  allowed; device-only readers must first be added to an account.
+- **Content.**
+  - Starter definitions are unreviewed drafts until a content editor publishes reviewed
+    meanings. No syllables are shipped.
+  - Only two bundled stories are in the Grades 2–4 English path, and there is no Grade 4
+    story. Teachers add stories in the workspace.
+- **Narration timings** are only as good as the timings file a teacher supplies. The app
+  never estimates them; without one, narration plays with no highlighting. The computer
+  voice needs a voice on the device (rare for Filipino).
+- **Pitch and rhythm feedback is not implemented.** The waveform shows the microphone
+  signal only and is not a pronunciation score.
 - **Browser behaviour.**
   - Headless Chromium crashes in `SpeechRecognition.available()`. The app guards
     against this; release browsers are unverified.

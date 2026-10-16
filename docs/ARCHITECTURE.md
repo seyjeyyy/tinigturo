@@ -2,18 +2,23 @@
 
 ```
 src/
+  content/       starter stories and vocabulary, the Grades 2–4 English learning path
   text/          language metadata, normalization, tokenization (stable word/sentence IDs)
   alignment/     streaming transcript-to-passage aligner (pure, deterministic)
   assessment/    scoring rules and measures
   rewards/       participation and performance reward rules (mirrored in SQL)
   speech/        provider interface, Web Speech + Vosk adapters, capability detection, plan
-  narration/     Listen-and-follow: speech synthesis and recorded narration with timings
-  recording/     recording state machine, session clock, MediaRecorder wrapper
+  narration/     Listen-and-follow: speech synthesis and recorded narration (word timings
+                 only when supplied), narration file and timings checks
+  recording/     recording state machine, session clock, MediaRecorder wrapper,
+                 microphone permission (no re-prompting), live waveform geometry
   reading/       ReadAloudController: orchestrates recorder + recognizer + aligner + storage
   db/            Dexie databases (one per identity), metadata DB, quota handling
-  data/          local repositories (learners, stories, sessions, words, server refresh)
+  data/          local repositories (learners, stories, sessions, words, server refresh),
+                 device-reader linking, published vocabulary and narration downloads
   sync/          persistent outbox, payload mapping, SyncEngine
-  backend/       Supabase client, remote API (sync), account and teacher APIs, error mapping
+  backend/       Supabase client, remote API (sync), account, teacher and teacher-tools
+                 (rubrics, grades, vocabulary, narration) APIs, error mapping
   pwa/           service-worker registration and update gate
   ui/            accessible building blocks (Button, Dialog, fields, alerts, badges)
   features/      screens: home, stories, reading, words, progress, downloads, settings,
@@ -132,3 +137,29 @@ the attempt is being created leaves no unfinished attempt behind.
 ## Security model
 
 See `docs/SECURITY_AND_PRIVACY.md`.
+
+## Teacher content and grades
+
+- **Grades** are teacher judgements stored in `session_grades`: one per attempt per
+  class, draft or published, with a revision check. Every save is appended to
+  `session_grade_revisions`. They reference an immutable `grading_rubrics` version.
+  Assessments, grades and badges are separate tables, and no code derives one from
+  another.
+- **Vocabulary** entries move draft → reviewed → published. A trigger versions every
+  write and logs it to `vocabulary_revisions`. Devices download published entries
+  into their local `vocabulary` table (`data/teacherContent.ts`).
+- **Narration** recordings are rows in `story_narrations` linked to one story version,
+  with the audio in `story-assets`. Devices store a downloaded recording under
+  `recordings['narration:<versionId>']` and its timings on the local story version.
+
+## Linking device-only readers
+
+`data/linking.ts` copies a reader from the `device` partition into `user:<id>`:
+
+1. The reader and all its records go into the account partition with their sync ops,
+   in **one transaction**, keeping every ID.
+2. Only then is the device copy deleted.
+3. A journal in `tinigturo-meta` lets an interrupted link resume. A reader already in
+   the account is only removed from the device, never copied twice.
+4. The server's `create_learner` rule (an ID can belong to one account) prevents
+   attaching to someone else's learner.

@@ -34,6 +34,24 @@ Key rules, each covered by `supabase/tests/security.test.ts`:
   and audited.
 - **Optimistic concurrency.** A trigger forces story, assignment and class edits to
   move the revision from N to N + 1, so stale clients cannot overwrite silently.
+  Grades and vocabulary entries carry a revision or version too. Their RPCs refuse a
+  stale one.
+- **Grades.**
+  - Visible to staff of the class that gave them, never to other classes.
+  - A learner's guardians see a grade only once it is **published**; drafts and the
+    revision history stay with the class's teachers.
+  - Only a teacher who teaches the learner, using a rubric of a class the learner is
+    actively in, can grade.
+  - Changing a published grade needs a reason. Every save is appended to an immutable
+    history with the teacher and time, and audited.
+  - The automated assessment is never changed by grading.
+- **Vocabulary.** Teachers write drafts. Only content editors and admins verify
+  syllables, review and publish. Every write leaves a revision row.
+- **Narration.**
+  - Only editors of a story can upload or register narration.
+  - The server checks that the file exists at the exact story-version path and that
+    any word timings fit that version.
+  - Readers of the story read it through short-lived signed URLs (300 s).
 - **Privileged operations** are security-definer functions with an empty `search_path`
   that re-check `auth.uid()`. Helper functions live in the unexposed `private` schema.
 - **Idempotency.** Every sync RPC records its `op_id` in `processed_sync_ops`. Session
@@ -80,6 +98,14 @@ UI says so. No audio is ever uploaded as a silent fallback.
 - Local data is partitioned per identity. Sign-out shows unsynced items and offers
   "sync now", "keep on this device" or "delete from this device". Deleting with
   unsynced work requires typing DELETE.
+- **Linking device-only readers into an account** never happens on sign-in by itself:
+  - The Grown-ups page lists the readers and what each has. The adult picks readers,
+    confirms the destination account and their relationship to the children.
+  - The app asks the server (`auth.getUser`) to confirm that account is signed in.
+  - IDs are kept. `create_learner` refuses an ID that belongs to another account; the
+    reader then stays on the device, marked not synced.
+  - Recordings stay on the device unless sharing is turned on and allowed.
+  - An interrupted link resumes from a journal, without duplicates.
 - The teacher **PIN** is a PBKDF2-SHA-256 hash (150,000 iterations, random salt) in the
   device's metadata DB. It only unlocks the local teacher screens; it is not a security
   boundary against someone who controls the device. Every server request still uses

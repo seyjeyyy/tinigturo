@@ -24,7 +24,14 @@ npx supabase db push          # applies supabase/migrations/*.sql
 The migrations create:
 - the schema, with RLS on every table;
 - the security-definer RPCs;
-- private Storage buckets `reading-audio` and `story-assets`, with their policies.
+- private Storage buckets `reading-audio` and `story-assets`, with their policies;
+- (`20261016000100_teacher_tools.sql`) grading rubrics, teacher grades and grade
+  history, the vocabulary review workflow and revision log, and story narration
+  recordings.
+
+All migrations are additive. Apply them **before** deploying a web app that uses them
+(see `docs/RELEASE.md`). `npx supabase migration list` shows which ones the project
+already has.
 
 ## 3. Load the development seed (optional)
 
@@ -67,6 +74,14 @@ or the service role.
   ```
 
   An admin can then grant roles from the app's API with `grant_role`.
+- **Who does what with teacher content:**
+
+  | Task | Role needed |
+  |---|---|
+  | Create rubrics, grade attempts and publish grades for a class | Staff of that class (`teacher`) |
+  | Write and edit draft word meanings | `teacher` |
+  | Verify syllables, review and publish word meanings | `content_editor` or `admin` |
+  | Add narration to a story | An editor of that story (owner, shared editor, or `content_editor`) |
 
 ## 6. Recording retention (Edge Function)
 

@@ -19,31 +19,55 @@ node scripts/bench-alignment.mjs   # alignment performance on this machine
 Each run below was executed on this branch; earlier counts are history, not current
 results. Environment: Windows 11, Node 24.14, Vitest 5.0.4, Playwright 1.64 (Chromium).
 
-| Suite | Baseline before changes (commit 06cdf4c + deployed working tree) | Stage 2 (this branch) |
-|---|---|---|
-| `npm run typecheck` | no errors | no errors |
-| `npm test` | 156 passed, 14 files | **180 passed**, 15 files (145 unit/component, 35 database) |
-| `npm run test:e2e` | 13 passed (desktop 11, mobile 2) | **15 passed** (desktop 13, mobile 2) |
-| `npm run build` | passes | passes |
+| Suite | Baseline (06cdf4c + deployed working tree) | Stage 2 | Stages 3–6 (2026-10-16, latest) |
+|---|---|---|---|
+| `npm run typecheck` | no errors | no errors | no errors |
+| `npm test` | 156 passed, 14 files | 180 passed, 15 files | **209 passed**, 19 files (165 unit/component, 44 database) |
+| `npm run test:e2e` | 13 passed | 15 passed | **19 passed** (desktop 16, mobile 3), including axe-core accessibility checks |
+| `npm run build` | passes | passes | passes |
 
 The baseline already had 156 tests although the earlier docs said 155.
 
-Unit and component tests per file (stage 2):
+Unit and component tests per file (latest):
 
 | File | Tests |
 |---|---|
-| `src/alignment/aligner.test.ts` | 35 |
+| `src/alignment/aligner.test.ts` | 36 |
 | `src/reading/readAloudController.test.ts` | 22 |
 | `src/sync/engine.test.ts` | 14 |
 | `src/recording/recording.test.ts` | 12 |
+| `src/features/components.test.tsx` | 11 |
 | `src/assessment/scoring.test.ts`, `src/lib/lib.test.ts` | 10 each |
-| `src/features/components.test.tsx` | 9 |
+| `src/data/teacherContent.test.ts` | 9 |
 | `src/text/text.test.ts`, `src/data/data.test.ts` | 8 each |
 | `src/speech/plan.test.ts`, `src/rewards/rules.test.ts` | 5 each |
-| `src/speech/webSpeech.test.ts` | 4 |
+| `src/content/scope.test.ts`, `src/data/linking.test.ts`, `src/speech/webSpeech.test.ts` | 4 each |
 | `src/recording/permissions.test.ts` | 3 |
 
-Database tests: `supabase/tests/security.test.ts` (31) and `supabase/tests/seed.test.ts` (4).
+Database tests (PGlite, real migrations): `supabase/tests/security.test.ts` (31),
+`supabase/tests/teacherTools.test.ts` (9), `supabase/tests/seed.test.ts` (4). The new
+teacher-tools tests were mutation-checked: allowing everyone to read grades, or dropping
+the reason required to change a published grade, makes 3 of them fail.
+
+### Stages 3–6: what was added, and its tests
+
+| Change | Tests |
+|---|---|
+| Compact phone reading screen (360×640: passage 482 px while recording, readable title) | `e2e/mobile.spec.ts` "small phone (360 × 640)"; before/after measurements in `docs/STATUS.md` |
+| Word Coach button pauses and continues the reading; touch-and-hold shortcut; taps during recording ignored with a hint | `e2e/reading-tools.spec.ts`; `components.test.tsx` "Word Coach shortcut" |
+| Live waveform from the microphone signal (display only) | `scope.test.ts` "live waveform geometry" (geometry only; real microphones unverified) |
+| Grades 2–4 English learning path, extra practice kept and labelled | `e2e/reading-tools.spec.ts`; `scope.test.ts` |
+| Install page offers the APK only on Android | `components.test.tsx` "InstallPage" |
+| Aligner robustness to recognizers that resend earlier text | `aligner.test.ts` "recognizers that repeat earlier text" |
+| Linking device-only readers into an account | `linking.test.ts` (move, resume after a crash, partition and cross-account guards, sync with a lost acknowledgement and a refused ID) |
+| Rubrics, grades, revisions, visibility, gradebook | `supabase/tests/teacherTools.test.ts` |
+| Vocabulary review workflow; published meanings on devices | `teacherTools.test.ts`; `teacherContent.test.ts` |
+| Narration upload rules; offline narration; no highlighting without timings | `teacherTools.test.ts`; `teacherContent.test.ts` |
+| Accessibility (WCAG 2.1 A/AA automated rules) on 12 student screens | `e2e/accessibility.spec.ts` (axe-core 4.13.0, pinned) |
+
+Not covered by automated tests: the teacher screens for rubrics, grades, word meanings
+and narration, and the account-linking dialog, run against no backend in these tests.
+Their server rules are tested in PGlite; the screens need the staging check below.
 
 ### Defects found in the stage-2 audit, each with a test that fails on the old code
 
@@ -151,6 +175,15 @@ Chromebook):
    - sign up, confirm the email, sign in, and recover the password;
    - join a class with a code, approve it, sync a reading;
    - upload a recording with consent and play it back from the teacher review screen;
-   - edit the same story on two devices and resolve the conflict.
+   - edit the same story on two devices and resolve the conflict;
+   - add device-only readers to an account (and interrupt it once), then check that
+     their readings and words appear once on the server;
+   - create a rubric, grade an attempt as a draft (the guardian must not see it),
+     publish it, revise it with a reason; check that a teacher of another class cannot
+     see it;
+   - write a word meaning as a teacher, review and publish it as a content editor,
+     then download it on a learner device and use it offline;
+   - upload narration with and without a timings file, then download it in Listen mode
+     and play it offline.
 8. Screen reader pass (TalkBack, VoiceOver, NVDA) through reader selection, reading,
    Word Coach and results.

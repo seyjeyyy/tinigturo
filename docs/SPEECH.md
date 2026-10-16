@@ -70,6 +70,31 @@ Adding an engine means one new class plus a branch in `createProvider`.
   Even a device 20–50× slower stays at a few milliseconds per update, so a worker
   would add complexity without a measurable benefit. **Re-measure on target devices.**
 
+## Package status (checked 2026-10-16)
+
+Checked on the npm registry (`npm view`) and with `npm audit`, not from memory.
+
+| Package | Version in use | Latest | Last published | Licence | Audit |
+|---|---|---|---|---|---|
+| `vosk-browser` | 0.0.8 | 0.0.8 | 2022-12-25 | Apache-2.0 | 2 moderate, both `uuid` (v3/v5/v6 caller-buffer bounds check), in code paths Vosk does not use |
+
+No engine was changed in this release. Vosk stays experimental and disabled by default
+(`VITE_ENABLE_VOSK`). An engine that has code in the app is not enabled just because the
+code exists. Before switching to a maintained engine such as sherpa-onnx, check its
+current releases, licence and security advisories from its official sources, then run
+the benchmark below on target phones.
+
+Benchmarks still to run on representative low-cost phones (none measured yet):
+
+| Measure | How |
+|---|---|
+| Model download size and time | Offline downloads screen; note the network |
+| Model load time and memory | `/benchmark`: load time and JS heap |
+| Recognition latency, real-time factor | `/benchmark` on a consented recording |
+| Battery and heat during a 5-minute reading | Device battery stats before and after |
+| Recording and recognition together | Read aloud with the engine on; check the recording is complete |
+| Accuracy | Word-by-word comparison with a teacher's reviewed transcript |
+
 ## Vosk evaluation notes (not yet a commitment)
 
 | Item | Value |
