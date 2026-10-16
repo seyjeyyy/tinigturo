@@ -14,6 +14,7 @@ import { SelectField, TextField, Toggle } from '../../ui/fields';
 import { Dialog } from '../../ui/Dialog';
 import { avatarById } from '../../domain/types';
 import { fetchAccessibleLearners } from '../../backend/accountApi';
+import { LinkReadersCard } from './LinkReaders';
 
 function NeedsInternet({ what }: { what: string }) {
   const { online } = useApp();
@@ -65,6 +66,7 @@ export function AccountPage() {
               <Button variant="ghost" icon={<LogOut size={20} />} onClick={() => setSignOutOpen(true)}>Sign out</Button>
             </div>
           </Card>
+          <LinkReadersCard />
           <ConsentCard />
         </>
       ) : (

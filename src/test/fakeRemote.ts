@@ -80,8 +80,12 @@ export class FakeRemote implements RemoteApi {
     return { userId: this.userId, roles: [], learnerIds: new Set(this.learnerIds), staffClassIds: new Set() };
   }
 
+  /** Learner IDs that belong to another account (create_learner refuses them, PT403). */
+  foreignLearnerIds = new Set<string>();
+
   async createLearner(opId: string, learner: { id: string }) {
     this.gate('createLearner');
+    if (this.foreignLearnerIds.has(learner.id)) throw new RemoteError('forbidden', 'learner id is not available');
     this.once(opId, () => {
       this.learnerIds.add(learner.id);
       return {};

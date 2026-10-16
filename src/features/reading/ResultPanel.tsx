@@ -168,8 +168,8 @@ export function ResultPanel({ session, awards, stoppedBy = null, onReadAgain, on
       ) : null}
       {partition === 'device' ? (
         <p className="text-sm text-ink-soft">
-          This reader is saved only on this device, so no teacher can see this reading. You and your grown-ups can listen to it here.{' '}
-          <Link to="/account" className="underline">Sign in</Link> to read with a class account.
+          This reader is saved only on this device, so no teacher can see this reading. You and your grown-ups can listen to it here.
+          A grown-up can <Link to="/account" className="underline">sign in and add this reader to an account</Link>; this reading goes with it.
         </p>
       ) : null}
     </section>

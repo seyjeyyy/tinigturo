@@ -45,6 +45,20 @@ export async function signIn(email: string, password: string) {
   if (error) throw error;
 }
 
+/**
+ * Asks the server which account this session belongs to (validates the token; a
+ * cached session on the device is not enough). Returns null when it is not valid.
+ */
+export async function verifySignedInUser(): Promise<{ userId: string; email: string | null } | null> {
+  const { data, error } = await requireSupabase().auth.getUser();
+  if (error) {
+    const classified = classifyError(error);
+    if (classified.kind === 'network') throw classified;
+    return null;
+  }
+  return data.user ? { userId: data.user.id, email: data.user.email ?? null } : null;
+}
+
 export async function signOut() {
   // Local sign-out also works offline; it clears this browser's session.
   await requireSupabase().auth.signOut({ scope: 'local' });
