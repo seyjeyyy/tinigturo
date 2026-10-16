@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import { useEffect, useRef } from 'react';
 import { LONG_PRESS_MS, Passage, type WordVisual } from './reading/Passage';
 import { InstallPage } from './install/InstallPage';
+import { BookImportDialog } from './teacher/BookImportDialog';
 import { ResultPanel } from './reading/ResultPanel';
 import { tokenizePassage } from '../text/tokenize';
 import { AppProvider, useApp } from '../app/AppContext';
@@ -204,5 +205,22 @@ describe('InstallPage', () => {
     expect(screen.queryByRole('link', { name: 'Download for Android' })).not.toBeInTheDocument();
     expect(screen.getByText(/Add to Home Screen/)).toBeInTheDocument();
     spy.mockRestore();
+  });
+});
+
+describe('BookImportDialog', () => {
+  it('previews the chosen part of a book and uses it only after the teacher confirms the right to use it', async () => {
+    const onUse = vi.fn();
+    render(<BookImportDialog open onClose={() => undefined} language="en" currentBody="" onUse={onUse} />);
+    const text = Array.from({ length: 12 }, (_, i) => `Line ${i + 1} of the\nstory.`).join('\n\n');
+    await userEvent.upload(screen.getByLabelText('Book file'), new File([text], 'kite_story.txt', { type: 'text/plain' }));
+    expect(await screen.findByText(/“kite story” · 2 parts/)).toBeInTheDocument();
+    expect(screen.getByLabelText('Text to import')).toHaveTextContent('Line 1 of the story.');
+    expect(screen.getByLabelText('Text to import')).not.toHaveTextContent('Line 11');
+    const use = screen.getByRole('button', { name: 'Use this text' });
+    expect(use).toBeDisabled();
+    await userEvent.click(screen.getByRole('checkbox', { name: /I may use this text/ }));
+    await userEvent.click(use);
+    expect(onUse).toHaveBeenCalledWith({ body: expect.stringMatching(/^Line 1 of the story\.\n\nLine 2 of the story\./), title: 'kite story' }, 'replace');
   });
 });

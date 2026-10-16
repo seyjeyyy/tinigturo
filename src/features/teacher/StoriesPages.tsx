@@ -20,6 +20,7 @@ import { SelectField, TextArea, TextField } from '../../ui/fields';
 import { Passage } from '../reading/Passage';
 import { ALL_GRADES, readingLevelLabel } from '../../content/scope';
 import { NarrationPanel } from './NarrationPanel';
+import { BookImportButton, BookImportDialog, type ImportedText } from './BookImportDialog';
 
 const STATUS_BADGE: Record<TeacherStoryRow['status'], { tone: 'neutral' | 'teal' | 'sun'; icon: string; text: string }> = {
   draft: { tone: 'neutral', icon: '✎', text: 'Draft' },
@@ -77,6 +78,7 @@ export function StoryEditorPage() {
   const [message, setMessage] = useState<{ tone: 'success' | 'error' | 'info' | 'warning'; text: string } | null>(null);
   const [conflict, setConflict] = useState<StoryServerState | null>(null);
   const [preview, setPreview] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [busy, setBusy] = useState(false);
   const previewScroll = useRef<HTMLDivElement>(null);
 
@@ -236,6 +238,10 @@ export function StoryEditorPage() {
           </SelectField>
           <TextField label="Topic" value={fields.topic} onChange={(e) => update({ topic: e.target.value })} maxLength={40} />
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <BookImportButton onClick={() => setImporting(true)} />
+          <span className="text-sm text-ink-soft">Use part of a book you may share with your class, then check and edit it here.</span>
+        </div>
         <TextArea
           label="Story text"
           hint="Plain text. Leave a blank line between paragraphs. Text is shown exactly as typed; HTML and formatting codes are not used."
@@ -247,6 +253,18 @@ export function StoryEditorPage() {
       </Card>
 
       {story?.published_version_id ? <NarrationPanel storyId={story.id} versionId={story.published_version_id} /> : null}
+
+      <BookImportDialog
+        open={importing}
+        onClose={() => setImporting(false)}
+        language={fields.language}
+        currentBody={fields.draft_body}
+        onUse={(imported: ImportedText, mode) => {
+          const body = mode === 'append' ? `${sanitizeStoryText(fields.draft_body)}\n\n${imported.body}` : imported.body;
+          update({ draft_body: body, ...(fields.draft_title.trim() ? {} : { draft_title: imported.title.slice(0, 120) }) });
+          setMessage({ tone: 'info', text: 'Imported. Check the text, set the reading level and language, then save the draft. Nothing is saved until you do.' });
+        }}
+      />
 
       <Dialog open={preview} onClose={() => setPreview(false)} title={`Preview: ${fields.draft_title || 'Untitled'}`} size="lg">
         <div ref={previewScroll} className="max-h-[60dvh] overflow-y-auto rounded-xl bg-paper p-4">

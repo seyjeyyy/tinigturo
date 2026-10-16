@@ -26,6 +26,8 @@ results. Environment: Windows 11, Node 24.14, Vitest 5.0.4, Playwright 1.64 (Chr
 | `npm run test:e2e` | 13 passed | 15 passed | **19 passed** (desktop 16, mobile 3), including axe-core accessibility checks |
 | `npm run build` | passes | passes | passes |
 
+With book import added (branch `enhance/book-import`, 2026-10-16): `npm test` **229 passed** in 22 files (185 unit/component, 44 database); `npm run test:e2e` **19 passed**; typecheck and build pass (precache 21 entries, 1,028 KB; PDF.js is not precached).
+
 The baseline already had 156 tests although the earlier docs said 155.
 
 Unit and component tests per file (latest):
@@ -64,6 +66,7 @@ the reason required to change a published grade, makes 3 of them fail.
 | Vocabulary review workflow; published meanings on devices | `teacherTools.test.ts`; `teacherContent.test.ts` |
 | Narration upload rules; offline narration; no highlighting without timings | `teacherTools.test.ts`; `teacherContent.test.ts` |
 | Accessibility (WCAG 2.1 A/AA automated rules) on 12 student screens | `e2e/accessibility.spec.ts` (axe-core 4.13.0, pinned) |
+| Importing stories from PDF, EPUB and text files | `src/bookImport/text.test.ts` (cleanup rules, including a picture-book refrain that must stay), `epub.test.ts` (chapters, DRM refusal, deflated entries), `pdf.test.ts` (the real PDF.js on generated PDFs: paragraphs, split words, headers, page numbers, scanned pages); `components.test.tsx` "BookImportDialog" |
 
 Not covered by automated tests: the teacher screens for rubrics, grades, word meanings
 and narration, and the account-linking dialog, run against no backend in these tests.

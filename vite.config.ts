@@ -53,7 +53,9 @@ export default defineConfig(({ mode }) => ({
         // Precache only the application shell. Story content lives in IndexedDB and
         // speech models in a dedicated Cache Storage bucket managed by the app.
         globPatterns: ['**/*.{js,css,html,svg,png,webmanifest,woff2}'],
-        globIgnores: ['**/vosk-*.js'],
+        // Large optional code is not precached for every learner: the speech engine
+        // (downloaded on request) and PDF.js (loaded only when a teacher imports a PDF).
+        globIgnores: ['**/vosk-*.js', '**/pdfjs-*.js', '**/pdf.worker*'],
         navigateFallback: 'index.html',
         // Never answer these with the app page: the Android download, and Digital Asset
         // Links (which Android fetches to verify the app belongs to this site).
@@ -80,6 +82,12 @@ export default defineConfig(({ mode }) => ({
     target: 'es2022',
     sourcemap: true,
     chunkSizeWarningLimit: 6500,
+    rollupOptions: {
+      output: {
+        // A stable name, so the service worker can leave PDF.js out of the precache.
+        manualChunks: (id) => (id.includes('/node_modules/pdfjs-dist/') ? 'pdfjs' : undefined),
+      },
+    },
   },
   worker: { format: 'es' },
   // The optional 5.8 MB speech engine is loaded on demand; pre-bundling it would

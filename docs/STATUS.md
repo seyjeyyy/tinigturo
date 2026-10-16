@@ -52,6 +52,7 @@ Classification:
 | Offline speech engines | Unverified | Vosk disabled by default; nothing benchmarked on devices. Filipino assessment off. |
 | Offline storage and sync | Verified (unit + PGlite) | Background sync only wakes an open app. |
 | RLS, storage policies, no self-promotion, private audio | Verified in PGlite | New tables locked down explicitly. Hosted unverified. |
+| Story import from books (PDF, EPUB, text) | **Done** (on `enhance/book-import`) | Scanned PDFs and DRM-protected books are refused, not guessed. Real teacher files are untested here. |
 | Accessibility (automated rules) | Verified | axe-core finds no serious or critical WCAG 2.1 A/AA violations on 12 student screens. A screen-reader pass is still needed. |
 
 ## Stages

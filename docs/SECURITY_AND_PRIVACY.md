@@ -117,6 +117,16 @@ UI says so. No audio is ever uploaded as a silent fallback.
   signed-in teacher who has set a PIN. Personal devices show only the account's own
   readers.
 
+## Book import
+
+- Book files (PDF, EPUB, text) are read in the teacher's browser; only the story text
+  the teacher saves is sent to the server.
+- PDF.js runs in a Web Worker with `isEvalSupported: false`, so it does not compile
+  code from the PDF. EPUB scripts are discarded, and text is read only through the DOM
+  text content, never inserted as HTML.
+- Files over 50 MB, ZIP entries over 20 MB, and PDFs over 400 pages are refused.
+- DRM-protected or password-protected books are refused rather than worked around.
+
 ## Data minimisation
 
 - Learners need only a first name or nickname, an avatar and an optional grade.

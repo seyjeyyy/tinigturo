@@ -70,7 +70,9 @@ deploy the retention function.
 
 **Teachers** (a separate, PIN-lockable workspace):
 - Classes, enrollment by request and approval, and roster learners for shared devices.
-- Stories: create, edit with conflict detection, publish immutable versions, and add
+- Stories: create, edit with conflict detection, **import text from a book** (PDF with
+  selectable text, DRM-free EPUB, or plain text, read in the browser and reviewed before
+  saving), publish immutable versions, and add
   **recorded narration** (with optional verified word timings) to a published version.
 - Assignments, progress tables and CSV exports.
 - Review: a queue of uncertain or unassessed attempts, recording playback through
@@ -112,13 +114,13 @@ deploy the retention function.
 
 ## Tests
 
-Results from the latest run (2026-10-16, branch `enhance/stage-3-reading-ux`). Details,
+Results from the latest run (2026-10-16, branch `enhance/book-import`). Details,
 and what these tests cannot show, are in [docs/TESTING.md](docs/TESTING.md).
 
 | Command | Result |
 |---|---|
 | `npm run typecheck` | no errors |
-| `npm test` | 209 passed (165 unit/component + 44 database tests against the real migrations in PGlite) |
+| `npm test` | 229 passed (185 unit/component + 44 database tests against the real migrations in PGlite) |
 | `npm run build` | passes |
 | `npm run test:e2e` | 19 passed (headless Chromium: desktop, Pixel 7 and 360×640 emulation, axe-core accessibility rules) |
 

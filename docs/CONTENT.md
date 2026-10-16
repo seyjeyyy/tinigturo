@@ -13,6 +13,40 @@ Story text is plain text. Paragraphs are separated by a blank line. The tokenize
 (`src/text/tokenize.ts`, version 1) assigns stable word and sentence IDs per immutable
 story version.
 
+## Importing stories from books
+
+In the story editor, **Import from a book (PDF, EPUB, text)** turns part of a book into
+story text that the teacher then checks, edits, and publishes like any other story.
+
+| Format | What is read | Not supported |
+|---|---|---|
+| PDF | Text that can be selected in the PDF. PDF.js 6.3.289 (Mozilla, Apache-2.0), loaded only when a teacher imports a PDF. | Scanned pages (pictures of text). There is no OCR, so the app reports this instead of guessing. Password-protected PDFs. More than 400 pages at once. |
+| EPUB | The chapters in reading order, as paragraphs. Cover and contents pages and pictures are skipped. | DRM-protected books. Ordinary font obfuscation is fine. |
+| Plain text (.txt) | Paragraphs separated by blank lines; hard-wrapped lines are joined. | Word documents: save them as PDF first. |
+
+How it works:
+
+1. The file is read **in the teacher's browser**. Nothing is uploaded until the teacher
+   saves the draft. Files can be up to 50 MB.
+2. The teacher picks a range of pages (PDF), chapters (EPUB) or parts (text) and sees
+   the cleaned text with its word count and the 20,000-character story limit.
+3. Cleanup is heuristic, and every rule is tested (`src/bookImport/*.test.ts`):
+   - words split across lines are rejoined;
+   - lines are grouped into paragraphs by spacing, indentation and font size;
+   - a paragraph that runs on to the next page is joined;
+   - ligatures and soft hyphens are repaired.
+4. Page numbers, and headers or footers repeated at the edge of many pages, are left
+   out. A line only counts as a header or footer if it is the first or last on the page
+   and set apart from the text, so a refrain repeated inside every page stays. **Every
+   line left out this way is listed to the teacher.**
+5. The teacher must confirm they may use the text with their class: for example it is in
+   the public domain, the school is licensed to use it this way, or they wrote it.
+6. The text replaces, or is added to, the editor text. Reading level, language and
+   summary are still set by the teacher.
+
+Two-column pages may come out interleaved, so the teacher always reviews the text before
+saving.
+
 ## Vocabulary: review workflow
 
 `src/content/starterVocabulary.ts` has 23 child-friendly definitions with examples,
