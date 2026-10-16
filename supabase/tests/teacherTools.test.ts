@@ -230,3 +230,21 @@ describe('story narration', () => {
     expect((await as(db, other.teacherId, (tx) => tx.query('select * from public.story_narrations where story_version_id = $1', [t.versionId]))).rows).toHaveLength(0);
   });
 });
+
+describe('creating a story from the app', () => {
+  it('a teacher can create a story by inserting it and then reading it back', async () => {
+    const t = await setupTeacher(db);
+    // Asking for the new row back in the same statement fails: the read policy looks the
+    // story up by id, and the row is not visible yet within that statement. The app
+    // therefore inserts first (with an id it chose) and reads the story afterwards.
+    await expect(as(db, t.teacherId, (tx) => tx.query(
+      `insert into public.stories (owner_id, draft_title, draft_body, language, grade_level) values ($1, 'X', 'Text.', 'en', 3) returning id`, [t.teacherId],
+    ))).rejects.toThrow(/row-level security/);
+    const id = uuid();
+    await as(db, t.teacherId, (tx) => tx.query(
+      `insert into public.stories (id, owner_id, draft_title, draft_body, language, grade_level) values ($1, $2, 'Muddy Feet', 'Shoes are great.', 'en', 3)`, [id, t.teacherId],
+    ));
+    const row = await as(db, t.teacherId, (tx) => tx.query<{ draft_title: string }>('select draft_title from public.stories where id = $1', [id]));
+    expect(row.rows).toEqual([{ draft_title: 'Muddy Feet' }]);
+  });
+});

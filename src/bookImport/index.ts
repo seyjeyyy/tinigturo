@@ -1,7 +1,8 @@
 import { BookImportError } from './errors';
 import { readEpub } from './epub';
 import type { PdfJs } from './pdf';
-import { plainTextToParagraphs, type BookSection } from './text';
+import type { BookSection } from './text';
+import { formatStoryText } from '../text/formatStory';
 
 export { BookImportError } from './errors';
 export { composeStoryText, type BookSection, type ComposedText } from './text';
@@ -68,8 +69,9 @@ export async function readBookFile(
     const { title, sections } = await readEpub(bytes, fallbackTitle);
     return { kind, title, sections, warnings: [] };
   }
-  const text = new TextDecoder().decode(bytes).replace(/^﻿/, '');
-  const paragraphs = plainTextToParagraphs(text);
+  const text = new TextDecoder().decode(bytes).replace(/^\uFEFF/, '');
+  // The same tidying as pasting: stanzas and poem lines kept, wrapped prose joined.
+  const paragraphs = formatStoryText(text).text.split('\n\n').filter(Boolean);
   if (!paragraphs.length) throw new BookImportError('No text was found in this file.', 'empty');
   const sections: BookSection[] = [];
   for (let i = 0; i < paragraphs.length; i += 10) {

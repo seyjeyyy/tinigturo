@@ -21,6 +21,8 @@ import { Passage } from '../reading/Passage';
 import { ALL_GRADES, readingLevelLabel } from '../../content/scope';
 import { NarrationPanel } from './NarrationPanel';
 import { BookImportButton, BookImportDialog, type ImportedText } from './BookImportDialog';
+import { formatStoryText } from '../../text/formatStory';
+import { Wand2 } from 'lucide-react';
 
 const STATUS_BADGE: Record<TeacherStoryRow['status'], { tone: 'neutral' | 'teal' | 'sun'; icon: string; text: string }> = {
   draft: { tone: 'neutral', icon: '✎', text: 'Draft' },
@@ -79,6 +81,8 @@ export function StoryEditorPage() {
   const [conflict, setConflict] = useState<StoryServerState | null>(null);
   const [preview, setPreview] = useState(false);
   const [importing, setImporting] = useState(false);
+  /** The last automatic formatting, so the teacher can undo it. */
+  const [formatUndo, setFormatUndo] = useState<{ unformatted: string; notes: string[] } | null>(null);
   const [busy, setBusy] = useState(false);
   const previewScroll = useRef<HTMLDivElement>(null);
 
@@ -111,6 +115,35 @@ export function StoryEditorPage() {
   }, [db, storyId, isNew, online]);
 
   const passage = useMemo(() => tokenizePassage(fields.draft_body, fields.language), [fields.draft_body, fields.language]);
+
+  // Pasted text is tidied automatically (stanzas, wrapped lines, extra blank lines);
+  // the teacher sees what changed and can undo it.
+  const onPasteStory = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const pasted = event.clipboardData.getData('text/plain');
+    if (!pasted) return;
+    const result = formatStoryText(pasted);
+    if (!result.changed) return; // nothing to tidy: a normal paste
+    event.preventDefault();
+    const el = event.currentTarget;
+    const before = fields.draft_body;
+    const start = el.selectionStart ?? before.length;
+    const end = el.selectionEnd ?? start;
+    update({ draft_body: before.slice(0, start) + result.text + before.slice(end) });
+    setFormatUndo({ unformatted: before.slice(0, start) + pasted + before.slice(end), notes: result.notes });
+    requestAnimationFrame(() => {
+      el.selectionStart = el.selectionEnd = start + result.text.length;
+    });
+  };
+  const tidyStory = () => {
+    const result = formatStoryText(fields.draft_body);
+    if (!result.changed) {
+      setFormatUndo(null);
+      setMessage({ tone: 'info', text: 'The story text is already tidy.' });
+      return;
+    }
+    setFormatUndo({ unformatted: fields.draft_body, notes: result.notes });
+    update({ draft_body: result.text });
+  };
   const update = (patch: Partial<StoryUpdateFields>) => {
     setFields((f) => ({ ...f, ...patch }));
     setDirty(true);
@@ -244,11 +277,20 @@ export function StoryEditorPage() {
         </div>
         <TextArea
           label="Story text"
-          hint="Plain text. Leave a blank line between paragraphs. Text is shown exactly as typed; HTML and formatting codes are not used."
+          hint="Plain text. Leave a blank line between paragraphs or poem stanzas, and put each poem line on its own line. Pasted text is tidied automatically. HTML and formatting codes are not used."
           value={fields.draft_body}
-          onChange={(e) => update({ draft_body: e.target.value })}
+          onChange={(e) => { update({ draft_body: e.target.value }); setFormatUndo(null); }}
+          onPaste={onPasteStory}
           rows={14}
         />
+        {formatUndo ? (
+          <Alert tone="info" action={<Button size="sm" variant="secondary" onClick={() => { update({ draft_body: formatUndo.unformatted }); setFormatUndo(null); }}>Undo formatting</Button>}>
+            Formatted automatically. {formatUndo.notes.join(' ')} The words were not changed.
+          </Alert>
+        ) : null}
+        <div>
+          <Button size="sm" variant="ghost" icon={<Wand2 size={18} />} onClick={tidyStory} disabled={!fields.draft_body.trim()}>Tidy up formatting</Button>
+        </div>
         <p className="text-sm text-ink-soft">{passage.words.length} words · {passage.sentences.length} sentences · {passage.paragraphs.length} paragraphs</p>
       </Card>
 
@@ -262,6 +304,7 @@ export function StoryEditorPage() {
         onUse={(imported: ImportedText, mode) => {
           const body = mode === 'append' ? `${sanitizeStoryText(fields.draft_body)}\n\n${imported.body}` : imported.body;
           update({ draft_body: body, ...(fields.draft_title.trim() ? {} : { draft_title: imported.title.slice(0, 120) }) });
+          setFormatUndo(null);
           setMessage({ tone: 'info', text: 'Imported. Check the text, set the reading level and language, then save the draft. Nothing is saved until you do.' });
         }}
       />

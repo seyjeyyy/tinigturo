@@ -183,8 +183,18 @@ export async function getStory(storyId: string): Promise<TeacherStoryRow | null>
   return unwrap(db().from('stories').select(STORY_SELECT).eq('id', storyId).maybeSingle());
 }
 
+/**
+ * Creates a story, then reads it back in a second request. Asking for the row in the
+ * insert itself fails: the read policy looks the story up by id, and a new row is not
+ * visible to that lookup within the same statement ("new row violates row-level
+ * security policy"). See supabase/tests/teacherTools.test.ts.
+ */
 export async function createStory(userId: string, fields: StoryUpdateFields): Promise<TeacherStoryRow> {
-  return unwrap(db().from('stories').insert({ owner_id: userId, ...fields }).select(STORY_SELECT).single());
+  const id = crypto.randomUUID();
+  await unwrap(db().from('stories').insert({ id, owner_id: userId, ...fields }));
+  const created = await getStory(id);
+  if (!created) throw new RemoteError('server', 'The story was created but could not be opened. Reload My stories.');
+  return created;
 }
 
 /** Saves a draft with optimistic concurrency; throws RemoteError('conflict', ..., serverState). */

@@ -22,6 +22,11 @@ export interface PassageWord {
   trailing: string;
   /** Whether a space follows this word when displayed. */
   spaceAfter: boolean;
+  /**
+   * A line break follows this word (a poem line ending inside a stanza). Display only:
+   * it never changes the words, their IDs or the sentences.
+   */
+  lineBreakAfter: boolean;
   /** Language-aware comparison key. */
   norm: string;
 }
@@ -73,6 +78,7 @@ export function sanitizeStoryText(input: string): string {
 interface RawToken {
   text: string;
   spaceAfter: boolean;
+  lineBreak?: boolean;
 }
 
 function splitParagraphWords(paragraph: string): RawToken[] {
@@ -133,13 +139,26 @@ export function tokenizePassage(body: string, language: LanguageCode): Passage {
       sentenceWordStart = words.length;
     };
 
-    for (const raw of splitParagraphWords(paragraphText)) {
+    // A single line break inside a paragraph keeps poem lines apart when displayed.
+    const lines = paragraphText.split('\n').map((l) => l.trim()).filter(Boolean);
+    const rawTokens: RawToken[] = [];
+    lines.forEach((line, i) => {
+      const tokens = splitParagraphWords(line);
+      if (tokens.length && i < lines.length - 1) {
+        tokens[tokens.length - 1].lineBreak = true;
+        tokens[tokens.length - 1].spaceAfter = true;
+      }
+      rawTokens.push(...tokens);
+    });
+
+    for (const raw of rawTokens) {
       if (!HAS_WORD_CHAR.test(raw.text)) {
         // Standalone punctuation ("...", "-", a lone quote) attaches to a neighbour.
         const previous = words[words.length - 1];
         if (previous && previous.paragraphIndex === paragraphIndex && words.length > sentenceWordStart) {
           previous.trailing += (previous.spaceAfter ? ' ' : '') + raw.text;
           previous.spaceAfter = raw.spaceAfter;
+          if (raw.lineBreak) previous.lineBreakAfter = true;
           if (SENTENCE_END.test(raw.text)) closeSentence();
         } else {
           pendingLeading += raw.text + (raw.spaceAfter ? ' ' : '');
@@ -161,6 +180,7 @@ export function tokenizePassage(body: string, language: LanguageCode): Passage {
         core,
         trailing,
         spaceAfter: raw.spaceAfter,
+        lineBreakAfter: Boolean(raw.lineBreak),
         norm: normalizeWord(core, language),
       });
       const endsSentence =

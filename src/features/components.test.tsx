@@ -213,16 +213,17 @@ describe('BookImportDialog', () => {
   it('previews the chosen part of a book and uses it only after the teacher confirms the right to use it', async () => {
     const onUse = vi.fn();
     render(<BookImportDialog open onClose={() => undefined} language="en" currentBody="" onUse={onUse} />);
-    const text = Array.from({ length: 12 }, (_, i) => `Line ${i + 1} of the\nstory.`).join('\n\n');
+    // Realistic plain-text book: prose hard-wrapped at about 70 characters.
+    const text = Array.from({ length: 12 }, (_, i) => `Line ${i + 1} of the story was wrapped at the width of a plain text file,\nlike books often are.`).join('\n\n');
     await userEvent.upload(screen.getByLabelText('Book file'), new File([text], 'kite_story.txt', { type: 'text/plain' }));
     expect(await screen.findByText(/“kite story” · 2 parts/)).toBeInTheDocument();
-    expect(screen.getByLabelText('Text to import')).toHaveTextContent('Line 1 of the story.');
+    expect(screen.getByLabelText('Text to import')).toHaveTextContent('Line 1 of the story was wrapped at the width of a plain text file, like books often are.');
     expect(screen.getByLabelText('Text to import')).not.toHaveTextContent('Line 11');
     const use = screen.getByRole('button', { name: 'Use this text' });
     expect(use).toBeDisabled();
     await userEvent.click(screen.getByRole('checkbox', { name: /I may use this text/ }));
     await userEvent.click(use);
-    expect(onUse).toHaveBeenCalledWith({ body: expect.stringMatching(/^Line 1 of the story\.\n\nLine 2 of the story\./), title: 'kite story' }, 'replace');
+    expect(onUse).toHaveBeenCalledWith({ body: expect.stringMatching(/^Line 1 of the story was wrapped at the width of a plain text file, like books often are\.\n\nLine 2 of/), title: 'kite story' }, 'replace');
   });
 });
 
@@ -241,5 +242,15 @@ describe('TeacherAccessCard', () => {
     expect(screen.queryByRole('button', { name: /make.*teacher|become a teacher/i })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Sign out and use a teacher account' }));
     expect(onSwitch).toHaveBeenCalled();
+  });
+});
+
+describe('Passage — poems', () => {
+  it('shows each poem line on its own line', () => {
+    const ref = { current: null as HTMLElement | null };
+    const passage = tokenizePassage('Shoes are great for tricky jumps,\nOver puddles, logs, or stumps.', 'en');
+    const { container } = render(<Passage passage={passage} visuals={[]} focusIndex={null} onWordSelect={() => undefined} textSize="lg" lineSpacing="relaxed" scrollContainer={ref} label="Poem" />);
+    expect(container.querySelectorAll('article br')).toHaveLength(1);
+    expect(container.querySelector('[data-w="5"]')?.parentElement?.querySelector('br')).not.toBeNull();
   });
 });

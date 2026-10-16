@@ -216,7 +216,7 @@ export function Passage({
                     selected={selectedIndex === word.index}
                     onSelect={select}
                   />
-                  {word.spaceAfter ? ' ' : ''}
+                  {word.lineBreakAfter ? <br /> : word.spaceAfter ? ' ' : ''}
                 </span>
               ))}
             </span>

@@ -13,6 +13,25 @@ Story text is plain text. Paragraphs are separated by a blank line. The tokenize
 (`src/text/tokenize.ts`, version 1) assigns stable word and sentence IDs per immutable
 story version.
 
+## Story text format
+
+Paragraphs, or poem stanzas, are separated by one blank line. A single line break inside a
+stanza keeps poem lines apart when reading; it never changes the words, their IDs or the
+sentences (`lineBreakAfter` in `src/text/tokenize.ts`).
+
+Text **pasted** into the story editor is tidied automatically (`src/text/formatStory.ts`). The
+teacher sees what changed and can **Undo formatting**; **Tidy up formatting** does the same
+for text already in the box. The rules:
+
+- **Two sizes of gap** (one blank line between lines, more between groups) means a poem
+  copied from a document with paragraph spacing: lines are kept together as stanzas.
+- **Prose broken at the page width** (long lines, most not ending a sentence) is joined back
+  into paragraphs.
+- **Extra blank lines, odd spaces and ligatures** are cleaned up.
+- **The words are never changed**, and tidying twice changes nothing more (tested).
+
+Imported plain-text files go through the same formatting.
+
 ## Importing stories from books
 
 In the story editor, **Import from a book (PDF, EPUB, text)** turns part of a book into
