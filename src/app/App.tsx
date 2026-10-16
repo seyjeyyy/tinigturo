@@ -90,6 +90,7 @@ const router = createBrowserRouter([
           { path: 'review', lazy: async () => ({ Component: (await import('../features/teacher/ReviewPages')).ReviewQueuePage }) },
           { path: 'review/:sessionId', lazy: async () => ({ Component: (await import('../features/teacher/ReviewPages')).ReviewSessionPage }) },
           { path: 'device', lazy: async () => ({ Component: (await import('../features/teacher/DevicePage')).DevicePage }) },
+          { path: 'vocabulary', lazy: async () => ({ Component: (await import('../features/teacher/VocabularyPage')).VocabularyPage }) },
         ],
       },
     ],

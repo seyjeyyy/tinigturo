@@ -166,8 +166,13 @@ export interface VocabularyEntry {
   /** Syllable division, shown only when verified by a reviewer. */
   syllables: string | null;
   syllablesVerified: boolean;
-  /** draft: written but not yet reviewed by an educator. */
-  reviewStatus: 'draft' | 'reviewed';
+  /**
+   * draft: written but not yet reviewed by an educator; reviewed: checked, not yet
+   * released; published: released by a reviewer and downloaded to devices.
+   */
+  reviewStatus: 'draft' | 'reviewed' | 'published';
+  /** Server version of a downloaded entry (bundled entries have none). */
+  version?: number;
 }
 
 export interface LearnerWord {

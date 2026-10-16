@@ -5,6 +5,8 @@ import { DEFAULT_READING_PREFERENCES, AVATARS, type AvatarId, type LearnerProfil
 import type { TinigDb } from '../db/localDb';
 import { nowIso } from '../lib/ids';
 import { saveDownloadedStory } from './stories';
+import { fetchPublishedVocabulary } from '../backend/teacherToolsApi';
+import { savePublishedVocabulary } from './teacherContent';
 
 function safeAvatar(value: string): AvatarId {
   return (AVATARS.some((a) => a.id === value) ? value : 'owl') as AvatarId;
@@ -66,6 +68,13 @@ export async function refreshFromServer(db: TinigDb, device: { mode: 'personal' 
     await db.assignments.clear();
     await db.assignments.bulkPut(assignments);
   });
+
+  // Reviewed word meanings, for the Word Coach offline (best effort).
+  try {
+    await savePublishedVocabulary(db, await fetchPublishedVocabulary());
+  } catch {
+    // The Offline downloads screen offers a manual download.
+  }
 
   // Assigned stories are downloaded so they can be read offline.
   const local = new Set((await db.stories.toCollection().primaryKeys()) as string[]);

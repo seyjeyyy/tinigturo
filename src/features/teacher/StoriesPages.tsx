@@ -19,6 +19,7 @@ import { Dialog } from '../../ui/Dialog';
 import { SelectField, TextArea, TextField } from '../../ui/fields';
 import { Passage } from '../reading/Passage';
 import { ALL_GRADES, readingLevelLabel } from '../../content/scope';
+import { NarrationPanel } from './NarrationPanel';
 
 const STATUS_BADGE: Record<TeacherStoryRow['status'], { tone: 'neutral' | 'teal' | 'sun'; icon: string; text: string }> = {
   draft: { tone: 'neutral', icon: '✎', text: 'Draft' },
@@ -244,6 +245,8 @@ export function StoryEditorPage() {
         />
         <p className="text-sm text-ink-soft">{passage.words.length} words · {passage.sentences.length} sentences · {passage.paragraphs.length} paragraphs</p>
       </Card>
+
+      {story?.published_version_id ? <NarrationPanel storyId={story.id} versionId={story.published_version_id} /> : null}
 
       <Dialog open={preview} onClose={() => setPreview(false)} title={`Preview: ${fields.draft_title || 'Untitled'}`} size="lg">
         <div ref={previewScroll} className="max-h-[60dvh] overflow-y-auto rounded-xl bg-paper p-4">

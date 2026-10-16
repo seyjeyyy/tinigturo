@@ -14,6 +14,7 @@ import { Passage, WordLegend, type WordVisual } from '../reading/Passage';
 import { DEFAULT_READING_PREFERENCES } from '../../domain/types';
 import { Dialog } from '../../ui/Dialog';
 import { fetchFeedback, type TeacherFeedbackRow } from '../../backend/accountApi';
+import { getRubric, getSessionGrades, type GradeRow, type RubricRow } from '../../backend/teacherToolsApi';
 
 export function SessionStatusBadges({ session }: { session: ReadingSessionRecord }) {
   const a = session.assessment;
@@ -100,6 +101,7 @@ export function AttemptDetail() {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [feedback, setFeedback] = useState<TeacherFeedbackRow[]>([]);
+  const [grades, setGrades] = useState<{ grade: GradeRow; rubric: RubricRow | null }[]>([]);
   const scrollRef = { current: null as HTMLElement | null };
 
   useEffect(() => {
@@ -112,6 +114,10 @@ export function AttemptDetail() {
   useEffect(() => {
     if (!session || partition === 'device' || !online || session.sync !== 'synced') return;
     fetchFeedback(session.learnerId).then((rows) => setFeedback(rows.filter((r) => r.session_id === session.id)), () => undefined);
+    // Only published grades are visible to families (enforced by the server).
+    getSessionGrades(session.id)
+      .then((rows) => Promise.all(rows.filter((g) => g.status === 'published').map(async (grade) => ({ grade, rubric: await getRubric(grade.rubric_id).catch(() => null) }))))
+      .then(setGrades, () => undefined);
   }, [session, partition, online]);
 
   const passage = useMemo(() => (story ? tokenizePassage(story.body, story.language) : null), [story]);
@@ -134,6 +140,24 @@ export function AttemptDetail() {
       ) : (
         <Card><p className="font-semibold">Practice saved—word assessment unavailable.</p><p className="text-ink-soft">Reading time: {formatDuration(session.timing.activeMs)}</p></Card>
       )}
+      {grades.map(({ grade, rubric }) => (
+        <Card key={grade.id}>
+          <h2 className="mb-1 text-lg font-bold">Teacher’s grade: {grade.final_level}</h2>
+          <p className="text-sm text-ink-soft">
+            {rubric ? `${rubric.name} (version ${rubric.version})` : 'Rubric'} · published {formatDateTime(grade.published_at)}
+            {grade.revision > 1 ? ' · updated by the teacher' : ''}
+          </p>
+          {rubric ? (
+            <ul className="mt-2 space-y-1">
+              {rubric.criteria.map((c) => (
+                <li key={c.key}><strong>{c.label}:</strong> {c.levels.find((l) => l.value === grade.criterion_levels[c.key])?.label ?? '—'}</li>
+              ))}
+            </ul>
+          ) : null}
+          {grade.feedback ? <p className="mt-2 rounded-xl bg-paper p-3">{grade.feedback}</p> : null}
+          <p className="mt-2 text-sm text-ink-soft">This grade is your teacher’s judgement. Badges are separate and do not affect it.</p>
+        </Card>
+      ))}
       {feedback.length ? (
         <Card>
           <h2 className="mb-2 text-lg font-bold">From your teacher</h2>

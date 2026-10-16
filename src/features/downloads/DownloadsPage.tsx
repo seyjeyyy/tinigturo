@@ -12,6 +12,9 @@ import { formatBytes, formatDate } from '../../lib/format';
 import { Alert, Card, PageHeader, ProgressBar, StatusBadge } from '../../ui/feedback';
 import { Button } from '../../ui/Button';
 import { featureFlags } from '../../backend/config';
+import { fetchPublishedVocabulary } from '../../backend/teacherToolsApi';
+import { savePublishedVocabulary } from '../../data/teacherContent';
+import { StorageFullError } from '../../db/errors';
 
 interface StorageInfo {
   usage: number | null;
@@ -33,7 +36,22 @@ async function readStorage(): Promise<StorageInfo> {
 }
 
 export function DownloadsPage() {
-  const { db, online, sync } = useApp();
+  const { db, online, sync, partition, cloud } = useApp();
+  const [vocabBusy, setVocabBusy] = useState(false);
+  const [vocabMessage, setVocabMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
+  const canFetchVocabulary = cloud.status === 'configured' && partition !== 'device';
+  const downloadVocabulary = async () => {
+    setVocabBusy(true);
+    setVocabMessage(null);
+    try {
+      const count = await savePublishedVocabulary(db, await fetchPublishedVocabulary());
+      setVocabMessage({ tone: 'success', text: count ? `${count} reviewed word meanings are on this device.` : 'No word meanings have been published by a reviewer yet.' });
+    } catch (error) {
+      setVocabMessage({ tone: 'error', text: error instanceof StorageFullError ? 'There is not enough space on this device.' : 'The word meanings could not be downloaded. Check the internet connection and try again.' });
+    } finally {
+      setVocabBusy(false);
+    }
+  };
   const unsyncedTotal = sync.unsynced.total;
   const stories = useLiveQuery(() => db.stories.toArray(), [db], []);
   const downloads = useLiveQuery(() => db.downloads.toArray(), [db], []);
@@ -118,7 +136,17 @@ export function DownloadsPage() {
             </li>
           ))}
         </ul>
-        <p className="mt-2 text-sm text-ink-soft">Starter definitions are drafts until a teacher reviews them.</p>
+        <p className="mt-2 text-sm text-ink-soft">
+          Starter definitions are drafts until a teacher reviews them. Reviewed meanings published by your school replace the draft for the same word.
+        </p>
+        {vocabMessage ? <Alert tone={vocabMessage.tone} className="mt-2">{vocabMessage.text}</Alert> : null}
+        {canFetchVocabulary ? (
+          <Button className="mt-2" variant="secondary" icon={<CloudDownload size={18} />} busy={vocabBusy} disabled={!online} onClick={() => void downloadVocabulary()}>
+            {online ? 'Download reviewed word meanings' : 'Needs internet to download word meanings'}
+          </Button>
+        ) : (
+          <p className="mt-2 text-sm text-ink-soft">Sign in to download word meanings reviewed by your school.</p>
+        )}
       </Card>
 
       <SpeechPanel online={online} />

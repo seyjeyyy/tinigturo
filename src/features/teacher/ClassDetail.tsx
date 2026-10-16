@@ -9,6 +9,7 @@ import {
 import { useAsync } from '../../lib/useAsync';
 import { toCsv, downloadText } from '../../lib/csv';
 import { ATTEMPT_CSV_HEADER, attemptCsvRow } from './attemptExport';
+import { GradebookTab, RubricsTab } from './Grading';
 import { formatDate, formatDateTime, formatDuration, percent } from '../../lib/format';
 import { uuid } from '../../lib/ids';
 import { AVATARS, avatarById, type AvatarId } from '../../domain/types';
@@ -18,11 +19,13 @@ import { Dialog } from '../../ui/Dialog';
 import { SelectField, TextField, Toggle } from '../../ui/fields';
 import { AvatarChooser } from '../learners/LearnerPicker';
 
-type Tab = 'roster' | 'assignments' | 'progress' | 'settings';
+type Tab = 'roster' | 'assignments' | 'progress' | 'grades' | 'rubrics' | 'settings';
 const TABS: { id: Tab; label: string }[] = [
   { id: 'roster', label: 'Learners' },
   { id: 'assignments', label: 'Assignments' },
   { id: 'progress', label: 'Progress' },
+  { id: 'grades', label: 'Grades' },
+  { id: 'rubrics', label: 'Rubrics' },
   { id: 'settings', label: 'Class settings' },
 ];
 
@@ -48,6 +51,8 @@ export function ClassDetail() {
         {tab === 'roster' ? <RosterTab classId={classId} /> : null}
         {tab === 'assignments' ? <AssignmentsTab classId={classId} /> : null}
         {tab === 'progress' ? <ProgressTab classId={classId} className={c.name} /> : null}
+        {tab === 'grades' ? <GradebookTab classId={classId} className={c.name} /> : null}
+        {tab === 'rubrics' ? <RubricsTab classId={classId} /> : null}
         {tab === 'settings' ? <SettingsTab klass={c} onChange={klass.reload} /> : null}
       </div>
     </div>

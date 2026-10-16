@@ -193,14 +193,18 @@ export class TtsNarrator extends BaseNarrator {
   }
 }
 
-/** Recorded narration with real word timings. */
+/**
+ * Recorded narration. Words light up only from word timings supplied with the
+ * recording; without them it plays with no highlighting (granularity 'unknown'),
+ * because sentence or word positions cannot be known from the audio alone.
+ */
 export class AudioNarrator extends BaseNarrator {
   private audio: HTMLAudioElement;
   private frame: number | null = null;
   private sorted: NarrationTiming[];
 
   constructor(private readonly passage: Passage, url: string, timings: NarrationTiming[]) {
-    super({ source: 'recording', granularity: 'word' });
+    super({ source: 'recording', granularity: timings.length ? 'word' : 'unknown' });
     this.sorted = [...timings].sort((a, b) => a.startMs - b.startMs);
     this.audio = new Audio(url);
     this.audio.preload = 'auto';

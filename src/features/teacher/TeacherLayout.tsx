@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink, Outlet, Link } from 'react-router';
-import { BookText, ClipboardCheck, Lock, MonitorSmartphone, School, Undo2 } from 'lucide-react';
+import { BookA, BookText, ClipboardCheck, Lock, MonitorSmartphone, School, Undo2 } from 'lucide-react';
 import { useApp } from '../../app/AppContext';
 import { OfflineNotice, SyncPill } from '../../app/StatusIndicators';
 import { UpdateBanner } from '../../pwa/UpdateBanner';
@@ -13,6 +13,7 @@ const NAV = [
   { to: '/teacher', label: 'Classes', icon: School, end: true },
   { to: '/teacher/stories', label: 'Stories', icon: BookText, end: false },
   { to: '/teacher/review', label: 'Review', icon: ClipboardCheck, end: false },
+  { to: '/teacher/vocabulary', label: 'Word meanings', icon: BookA, end: false },
   { to: '/teacher/device', label: 'This device', icon: MonitorSmartphone, end: false },
 ];
 

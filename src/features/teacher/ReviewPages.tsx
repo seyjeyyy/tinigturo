@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useParams, useSearchParams } from 'react-router';
+import { GradePanel } from './Grading';
 import { Headphones } from 'lucide-react';
 import { useApp } from '../../app/AppContext';
 import {
@@ -44,7 +45,7 @@ export function ReviewQueuePage() {
         <ul className="divide-y divide-line rounded-2xl border-2 border-line bg-white">
           {queue.data!.map((row) => (
             <li key={row.session_id} className="flex flex-wrap items-center gap-2 p-3">
-              <Link to={`/teacher/review/${row.session_id}`} className="font-semibold underline">{row.learner_name} — {row.story_title}</Link>
+              <Link to={`/teacher/review/${row.session_id}?class=${row.class_id}`} className="font-semibold underline">{row.learner_name} — {row.story_title}</Link>
               <span className="text-sm text-ink-soft">{row.class_name} · {formatDateTime(row.started_at)}</span>
               {row.review_requested ? <StatusBadge tone="blue" icon="✋">Review requested</StatusBadge> : null}
               {row.status === 'unassessed' ? <StatusBadge icon="○">Not checked automatically</StatusBadge> : null}
@@ -73,6 +74,7 @@ function toSummary(d: SessionDetail): AssessmentSummary | null {
 
 export function ReviewSessionPage() {
   const { sessionId = '' } = useParams();
+  const [params] = useSearchParams();
   const { auth } = useApp();
   const detail = useAsync(() => getSessionDetail(sessionId), [sessionId]);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -179,6 +181,8 @@ export function ReviewSessionPage() {
           </div>
         </Card>
       ) : null}
+
+      {d.mode === 'read_aloud' ? <GradePanel sessionId={d.id} initialClassId={params.get('class')} /> : null}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>

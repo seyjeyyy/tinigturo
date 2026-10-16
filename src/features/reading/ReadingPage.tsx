@@ -28,6 +28,10 @@ import { Button, IconButton } from '../../ui/Button';
 import { Alert, EmptyState, Loading } from '../../ui/feedback';
 import { Dialog } from '../../ui/Dialog';
 import { downloadBlob } from '../../lib/csv';
+import { formatBytes } from '../../lib/format';
+import { activeNarration, narrationUrl, type NarrationRow } from '../../backend/teacherToolsApi';
+import { narrationKey, saveNarration } from '../../data/teacherContent';
+import { StorageFullError } from '../../db/errors';
 import type { RecordingError } from '../../recording/machine';
 
 type Mode = 'read' | 'listen';
@@ -189,14 +193,18 @@ function Reader({ story: liveStory }: { story: StoryVersionRecord }) {
 
   // Listen mode narrator.
   const [narrator, setNarrator] = useState<Narrator | null>(null);
+  /** Bumped when a narration recording is downloaded, so Listen mode switches to it. */
+  const [narrationLoaded, setNarrationLoaded] = useState(0);
   useEffect(() => {
     if (mode !== 'listen') return;
     let disposed = false;
     let instance: Narrator | null = null;
     void (async () => {
-      if (story.narration?.timings.length) {
-        const blob = await db.recordings.get(`narration:${story.id}`);
-        if (blob) instance = new AudioNarrator(passage, URL.createObjectURL(blob.blob), story.narration.timings);
+      // The recording is stored per story version, with its word timings if it has any.
+      const narration = (await db.stories.get(story.id))?.narration ?? null;
+      if (narration) {
+        const blob = await db.recordings.get(narrationKey(story.id));
+        if (blob) instance = new AudioNarrator(passage, URL.createObjectURL(blob.blob), narration.timings);
       }
       if (!instance) {
         await TtsNarrator.waitForVoices();
@@ -209,7 +217,7 @@ function Reader({ story: liveStory }: { story: StoryVersionRecord }) {
       instance?.dispose();
       setNarrator(null);
     };
-  }, [mode, passage, story, db]);
+  }, [mode, passage, story, db, narrationLoaded]);
 
   const playSuspended = useCallback(async (play: () => Promise<void>) => {
     narrator?.pause();
@@ -334,6 +342,8 @@ function Reader({ story: liveStory }: { story: StoryVersionRecord }) {
               language={story.language}
             />
           ) : (
+            <>
+            <NarrationOffer story={story} onDownloaded={() => setNarrationLoaded((n) => n + 1)} />
             <ListenBar
               narrator={narrator}
               picking={picking}
@@ -341,6 +351,7 @@ function Reader({ story: liveStory }: { story: StoryVersionRecord }) {
               onHelp={() => setHelpOpen(true)}
               onFinished={(ms, startedAt) => learner && void saveListenSession(db, { learnerId: learner.id, story, assignmentId, startedAt, listenedMs: ms })}
             />
+            </>
           )}
         </div>
       </footer>
@@ -434,6 +445,51 @@ function NarrationHighlighter({ narrator, scrollRef }: { narrator: Narrator; scr
     }
   }, [state, scrollRef]);
   return null;
+}
+
+/**
+ * Offers a teacher's recorded narration for this exact story version when one exists
+ * and is not on the device yet. Downloading is a choice: recordings can be several MB.
+ */
+function NarrationOffer({ story, onDownloaded }: { story: StoryVersionRecord; onDownloaded: () => void }) {
+  const { db, online, partition, cloud } = useApp();
+  const [row, setRow] = useState<NarrationRow | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const localPath = useLiveQuery(async () => (await db.stories.get(story.id))?.narration?.audioPath ?? null, [db, story.id]);
+  const canAsk = online && partition !== 'device' && cloud.status === 'configured';
+  useEffect(() => {
+    if (!canAsk) return;
+    let cancelled = false;
+    activeNarration(story.id).then((r) => !cancelled && setRow(r), () => !cancelled && setRow(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [canAsk, story.id]);
+  if (!row || localPath === undefined || localPath === row.audio_path) return null;
+  const download = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(await narrationUrl(row.audio_path));
+      if (!response.ok) throw new Error(String(response.status));
+      await saveNarration(db, story, row, await response.blob());
+      onDownloaded();
+    } catch (e) {
+      setError(e instanceof StorageFullError ? 'There is not enough space on this device.' : 'The recording could not be downloaded. Try again when the connection is better.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="mb-1.5 flex flex-wrap items-center gap-2 rounded-xl border-2 border-teal-brand/40 bg-teal-tint px-3 py-1.5 text-sm" role="status">
+      <span className="flex-1">
+        A teacher recorded this story ({formatBytes(row.size_bytes)}{row.timings ? ', with word timings' : ', without word timings'}).
+        {error ? <strong className="block">{error}</strong> : null}
+      </span>
+      <Button size="sm" variant="secondary" busy={busy} onClick={() => void download()}>Download recording</Button>
+    </div>
+  );
 }
 
 function Notice({ text, tone = 'info' }: { text: string; tone?: 'info' | 'warning' | 'error' }) {
