@@ -76,7 +76,8 @@ export function SettingsPage() {
           <ButtonLink variant="secondary" to="/downloads">Offline downloads</ButtonLink>
           <ButtonLink variant="secondary" to="/sync">Sync status</ButtonLink>
           <ButtonLink variant="secondary" to="/learners">Switch reader</ButtonLink>
-          <ButtonLink variant="secondary" to="/account">Account</ButtonLink>
+          <ButtonLink variant="secondary" to="/account">Grown-ups and account</ButtonLink>
+          <ButtonLink variant="secondary" to="/teacher">Teacher workspace</ButtonLink>
         </div>
         <p className="mt-3 text-sm text-ink-soft">Need help installing? See <Link to="/install" className="underline">how to install and use offline</Link>.</p>
       </Card>

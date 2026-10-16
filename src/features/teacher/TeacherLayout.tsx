@@ -4,8 +4,9 @@ import { BookA, BookText, ClipboardCheck, Lock, MonitorSmartphone, School, Undo2
 import { useApp } from '../../app/AppContext';
 import { OfflineNotice, SyncPill } from '../../app/StatusIndicators';
 import { UpdateBanner } from '../../pwa/UpdateBanner';
-import { CloudNotConfigured } from '../account/AccountPages';
-import { Alert, Card, PageHeader } from '../../ui/feedback';
+import { CloudNotConfigured, SignOutDialog } from '../account/AccountPages';
+import { TEACHER_SIGN_IN, TEACHER_SIGN_UP, TeacherAccessCard } from '../account/TeacherAccess';
+import { Alert, PageHeader } from '../../ui/feedback';
 import { Button, ButtonLink } from '../../ui/Button';
 import { TextField } from '../../ui/fields';
 
@@ -48,18 +49,25 @@ function UnlockScreen() {
 
 export function TeacherLayout() {
   const { cloud, auth, isTeacher, teacherLock, online } = useApp();
+  const [switching, setSwitching] = useState(false);
 
   let gate: React.ReactNode = null;
   if (cloud.status !== 'configured') gate = <CloudNotConfigured />;
   else if (auth.status === 'loading') gate = <p>Loading…</p>;
   else if (auth.status !== 'signed_in') {
-    gate = <Alert tone="info" title="Sign in as a teacher" action={<ButtonLink size="sm" to="/account/sign-in">Sign in</ButtonLink>}>The teacher workspace needs a teacher account.</Alert>;
+    gate = (
+      <Alert tone="info" title="Sign in as a teacher" action={<><ButtonLink size="sm" to={TEACHER_SIGN_IN}>Teacher sign in</ButtonLink><ButtonLink size="sm" variant="secondary" to={TEACHER_SIGN_UP}>Create a teacher account</ButtonLink></>}>
+        The teacher workspace needs a teacher account.
+      </Alert>
+    );
   } else if (!isTeacher) {
     gate = (
-      <Card>
-        <h2 className="text-lg font-bold">This account does not have the teacher role</h2>
-        <p className="mt-1">Teacher access is granted on the server. If you signed up as a teacher, your school administrator may need to approve it.{online ? '' : ' (You are offline, so the role could not be checked.)'}</p>
-      </Card>
+      <>
+        {!online ? <Alert tone="offline" className="mb-3">You are offline, so this account’s teacher role could not be checked.</Alert> : null}
+        <TeacherAccessCard state="not_teacher" onSwitchAccount={() => setSwitching(true)} />
+        <p className="mt-3 text-sm text-ink-soft">If you signed up as a teacher, your school may need to approve the teacher role first.</p>
+        <SignOutDialog open={switching} onClose={() => setSwitching(false)} afterSignOut={TEACHER_SIGN_IN} />
+      </>
     );
   } else if (teacherLock.locked) gate = <UnlockScreen />;
 

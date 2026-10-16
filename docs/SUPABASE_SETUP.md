@@ -53,6 +53,16 @@ Email confirmation is recommended (it is on in `supabase/config.toml` for local 
 
 ## 5. Teacher roles
 
+In the app, teachers start from **Grown-ups → Teachers** ("Teacher sign in" or "Create a teacher account"). A parent or guardian account sees why it cannot open the workspace and how to get access; it can never give itself the role.
+
+To give an existing account the teacher role, run this as the database owner (SQL editor):
+
+```sql
+insert into public.user_roles (user_id, role)
+select id, 'teacher' from auth.users where email = 'teacher@example.org'
+on conflict do nothing;
+```
+
 Roles live in `public.user_roles` and can only be written by security-definer functions
 or the service role.
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { GraduationCap, KeyRound, LogIn, LogOut, School, UserPlus } from 'lucide-react';
 import { useApp } from '../../app/AppContext';
@@ -15,6 +15,8 @@ import { Dialog } from '../../ui/Dialog';
 import { avatarById } from '../../domain/types';
 import { fetchAccessibleLearners } from '../../backend/accountApi';
 import { LinkReadersCard } from './LinkReaders';
+import { TEACHER_SIGN_IN, TeacherAccessCard } from './TeacherAccess';
+import { safeReturnPath } from '../../lib/paths';
 
 function NeedsInternet({ what }: { what: string }) {
   const { online } = useApp();
@@ -51,6 +53,7 @@ export function CloudNotConfigured() {
 export function AccountPage() {
   const { cloud, auth, isTeacher, roles } = useApp();
   const [signOutOpen, setSignOutOpen] = useState(false);
+  const [afterSignOut, setAfterSignOut] = useState<string | undefined>(undefined);
   return (
     <div className="space-y-5">
       <PageHeader title="Grown-ups" description="Accounts, classes and the teacher workspace." />
@@ -66,17 +69,24 @@ export function AccountPage() {
               <Button variant="ghost" icon={<LogOut size={20} />} onClick={() => setSignOutOpen(true)}>Sign out</Button>
             </div>
           </Card>
+          {!isTeacher ? (
+            <TeacherAccessCard state="not_teacher" onSwitchAccount={() => { setAfterSignOut(TEACHER_SIGN_IN); setSignOutOpen(true); }} />
+          ) : null}
           <LinkReadersCard />
           <ConsentCard />
         </>
       ) : (
-        <Card>
-          <p className="mb-3">Sign in to sync readers between devices, join a class, or use the teacher workspace. Readers on this device keep working without an account.</p>
-          <div className="flex flex-wrap gap-2">
-            <ButtonLink to="/account/sign-in" icon={<LogIn size={20} />}>Sign in</ButtonLink>
-            <ButtonLink variant="secondary" to="/account/sign-up" icon={<UserPlus size={20} />}>Create an account</ButtonLink>
-          </div>
-        </Card>
+        <>
+          <Card>
+            <h2 className="mb-1 text-lg font-bold">Parents and guardians</h2>
+            <p className="mb-3">Sign in to back up readers, use them on other devices, and join a class. Readers on this device keep working without an account.</p>
+            <div className="flex flex-wrap gap-2">
+              <ButtonLink to="/account/sign-in" icon={<LogIn size={20} />}>Sign in</ButtonLink>
+              <ButtonLink variant="secondary" to="/account/sign-up" icon={<UserPlus size={20} />}>Create an account</ButtonLink>
+            </div>
+          </Card>
+          <TeacherAccessCard state="signed_out" />
+        </>
       )}
       <Card>
         <h2 className="mb-2 text-lg font-bold">Works offline</h2>
@@ -84,7 +94,7 @@ export function AccountPage() {
         <h2 className="mb-2 mt-3 text-lg font-bold">Needs the internet</h2>
         <p>Signing in for the first time, creating an account, password recovery, joining a class, downloading new stories or speech packs, and syncing.</p>
       </Card>
-      <SignOutDialog open={signOutOpen} onClose={() => setSignOutOpen(false)} />
+      <SignOutDialog open={signOutOpen} onClose={() => { setSignOutOpen(false); setAfterSignOut(undefined); }} afterSignOut={afterSignOut} />
     </div>
   );
 }
@@ -125,7 +135,7 @@ function ConsentCard() {
   );
 }
 
-export function SignOutDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function SignOutDialog({ open, onClose, afterSignOut }: { open: boolean; onClose: () => void; afterSignOut?: string }) {
   const { db, partition, online, sync, teacherLock } = useApp();
   const [summary, setSummary] = useState<UnsyncedSummary | null>(null);
   const [confirmText, setConfirmText] = useState('');
@@ -141,7 +151,7 @@ export function SignOutDialog({ open, onClose }: { open: boolean; onClose: () =>
       teacherLock.lock();
       await signOut();
       if (removeData && partition !== 'device') await deletePartition(partition);
-      navigate('/');
+      navigate(afterSignOut ?? '/');
     } finally {
       setBusy(false);
       onClose();
@@ -220,6 +230,9 @@ export function SignInPage() {
   const [unconfirmed, setUnconfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const next = safeReturnPath(params.get('next'));
+  const forTeacher = Boolean(next?.startsWith('/teacher'));
   if (cloud.status !== 'configured') return <CloudNotConfigured />;
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -229,7 +242,7 @@ export function SignInPage() {
     try {
       await signIn(email.trim(), password);
       await refreshRoles();
-      navigate('/account');
+      navigate(next ?? '/account');
     } catch (e) {
       setError(friendlyAuthError(e));
       setUnconfirmed(/Email not confirmed/i.test((e as Error)?.message ?? ''));
@@ -239,7 +252,7 @@ export function SignInPage() {
   };
   return (
     <div className="mx-auto max-w-md">
-      <PageHeader title="Sign in" />
+      <PageHeader title={forTeacher ? 'Teacher sign in' : 'Sign in'} description={forTeacher ? 'Sign in with your teacher account to open the teacher workspace.' : undefined} />
       <NeedsInternet what="Signing in" />
       <form onSubmit={submit} className="space-y-4">
         <TextField label="Email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
@@ -250,7 +263,7 @@ export function SignInPage() {
       </form>
       <p className="mt-4 flex flex-wrap justify-between gap-2">
         <Link to="/account/reset" className="underline">Forgot your password?</Link>
-        <Link to="/account/sign-up" className="underline">Create an account</Link>
+        <Link to={forTeacher ? '/account/sign-up?as=teacher' : '/account/sign-up'} className="underline">{forTeacher ? 'Create a teacher account' : 'Create an account'}</Link>
       </p>
     </div>
   );
@@ -258,7 +271,9 @@ export function SignInPage() {
 
 export function SignUpPage() {
   const { cloud } = useApp();
-  const [form, setForm] = useState({ email: '', password: '', displayName: '', accountType: 'guardian' as AccountType });
+  const [params] = useSearchParams();
+  const [form, setForm] = useState({ email: '', password: '', displayName: '', accountType: (params.get('as') === 'teacher' ? 'teacher' : 'guardian') as AccountType });
+  const teacher = form.accountType === 'teacher';
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -281,9 +296,9 @@ export function SignUpPage() {
   };
   return (
     <div className="mx-auto max-w-md">
-      <PageHeader title="Create an account" description="For parents, guardians and teachers. Children do not need their own account." />
+      <PageHeader title={teacher ? 'Create a teacher account' : 'Create an account'} description="For parents, guardians and teachers. Children do not need their own account." />
       <NeedsInternet what="Creating an account" />
-      {done ? <Alert tone="success" action={<ButtonLink size="sm" to="/account/sign-in">Sign in</ButtonLink>}>{done}</Alert> : (
+      {done ? <Alert tone="success" action={<ButtonLink size="sm" to={teacher ? TEACHER_SIGN_IN : '/account/sign-in'}>Sign in</ButtonLink>}>{done}</Alert> : (
         <form onSubmit={submit} className="space-y-4">
           <TextField label="Your name" value={form.displayName} onChange={(e) => setForm({ ...form, displayName: e.target.value })} autoComplete="name" maxLength={80} />
           <TextField label="Email" type="email" autoComplete="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />

@@ -68,7 +68,7 @@ deploy the retention function.
   adult confirms which readers and which account. IDs are kept, and an interrupted move
   resumes safely.
 
-**Teachers** (a separate, PIN-lockable workspace):
+**Teachers** (a separate, PIN-lockable workspace at `/teacher`, reached from **Grown-ups → Teachers → Teacher sign in** or **Settings → Teacher workspace**; it needs an account with the teacher role):
 - Classes, enrollment by request and approval, and roster learners for shared devices.
 - Stories: create, edit with conflict detection, **import text from a book** (PDF with
   selectable text, DRM-free EPUB, or plain text, read in the browser and reviewed before

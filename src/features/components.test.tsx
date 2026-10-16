@@ -6,6 +6,7 @@ import { useEffect, useRef } from 'react';
 import { LONG_PRESS_MS, Passage, type WordVisual } from './reading/Passage';
 import { InstallPage } from './install/InstallPage';
 import { BookImportDialog } from './teacher/BookImportDialog';
+import { TeacherAccessCard } from './account/TeacherAccess';
 import { ResultPanel } from './reading/ResultPanel';
 import { tokenizePassage } from '../text/tokenize';
 import { AppProvider, useApp } from '../app/AppContext';
@@ -222,5 +223,23 @@ describe('BookImportDialog', () => {
     await userEvent.click(screen.getByRole('checkbox', { name: /I may use this text/ }));
     await userEvent.click(use);
     expect(onUse).toHaveBeenCalledWith({ body: expect.stringMatching(/^Line 1 of the story\.\n\nLine 2 of the story\./), title: 'kite story' }, 'replace');
+  });
+});
+
+describe('TeacherAccessCard', () => {
+  it('signed out: a separate teacher door that leads back to the workspace after signing in', () => {
+    render(<MemoryRouter><TeacherAccessCard state="signed_out" /></MemoryRouter>);
+    expect(screen.getByRole('link', { name: 'Teacher sign in' })).toHaveAttribute('href', '/account/sign-in?next=/teacher');
+    expect(screen.getByRole('link', { name: 'Create a teacher account' })).toHaveAttribute('href', '/account/sign-up?as=teacher');
+  });
+
+  it('parent account: explains why the workspace is closed and offers a safe switch, never a self-upgrade', async () => {
+    const onSwitch = vi.fn();
+    render(<MemoryRouter><TeacherAccessCard state="not_teacher" onSwitchAccount={onSwitch} /></MemoryRouter>);
+    expect(screen.getByText(/cannot open the teacher workspace/)).toBeInTheDocument();
+    expect(screen.getByText(/add the teacher role/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /make.*teacher|become a teacher/i })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Sign out and use a teacher account' }));
+    expect(onSwitch).toHaveBeenCalled();
   });
 });
